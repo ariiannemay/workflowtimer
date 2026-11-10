@@ -1,0 +1,3228 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1d4ed8">
+<title>Workflow Timer</title>
+
+<!-- Libraries -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://unpkg.com/papaparse@latest/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet" />
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f7f9fb;
+    color: #0f172a;
+}
+
+.timer-display {
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: #1e40af;
+    transition: color 0.3s ease;
+}
+
+.timer-display.overdue {
+    color: #ef4444;
+}
+
+.beep-active {
+    animation: flash 0.5s infinite alternate;
+}
+
+@keyframes flash {
+    from { background-color: #fca5a5; }
+    to { background-color: #fef2f2; }
+}
+
+.animate-spin-slow {
+    animation: spin 4s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* === WORKFLOW ACTION BUTTONS === */
+.workflow-btn {
+    padding: 0.85rem;
+    border-radius: 9999px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transition: all 0.25s ease-in-out;
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #ffffff;
+    text-align: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+    cursor: pointer;
+}
+
+.workflow-btn:disabled {
+    background-color: #e5e7eb !important;
+    background-image: none !important;
+    color: #9ca3af !important;
+    cursor: not-allowed;
+    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06) !important;
+}
+
+.btn-start-workflow {
+    background-image: linear-gradient(to right, #3b82f6, #1d4ed8);
+}
+
+.btn-start-workflow.is-running {
+    background-image: linear-gradient(to right, #f59e0b, #d97706);
+}
+
+.btn-complete-workflow {
+    background-image: linear-gradient(to right, #10b981, #059669);
+}
+
+.btn-reset-workflow {
+    background-color: #ffffff !important;
+    color: #4b5563 !important;
+    border: 2px solid #d1d5db !important;
+    box-shadow: none !important;
+    font-weight: 700 !important;
+}
+
+.btn-reset-workflow:hover:enabled {
+    background-color: #fee2e2 !important;
+    color: #dc2626 !important;
+    border-color: #fecaca !important;
+    transform: translateY(-1px);
+}
+
+/* === HEADER & CLOCK WIDGET === */
+.header-left-content {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100%;
+}
+
+.welcome-note-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-top: 0.25rem;
+    height: 100%;
+}
+
+.time-widget {
+    background: #ffffff;
+    color: #000000;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-weight: 700;
+    line-height: 1.2;
+    height: 100%;
+    border: 12px solid #041650;
+    box-shadow: inset 0 0 0 2px #fefefe, 0 4px 6px -1px rgba(0, 0, 0, 0.25);
+}
+
+.time-widget .date-display {
+    color: #800000;
+    font-weight: 800;
+    text-transform: uppercase;
+    border-bottom: 2px solid #000000;
+    padding-bottom: 0.45rem;
+    margin-bottom: 0.45rem;
+    width: 90%;
+    text-align: center;
+}
+
+.time-widget .time-display {
+    letter-spacing: 0.04em;
+    line-height: 1;
+}
+
+/* === DARK MODE TITLE PILL TOGGLE === */
+.title-dark-toggle {
+    width: 52px;
+    height: 28px;
+    border-radius: 9999px;
+    border: 1px solid #93c5fd;
+    background: linear-gradient(to right, #dbeafe, #bfdbfe);
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2px;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.title-dark-toggle:hover {
+    background: linear-gradient(to right, #bfdbfe, #93c5fd);
+    transform: translateY(-1px) scale(1.01);
+}
+
+.title-dark-toggle .title-dark-toggle-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    color: #334155;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+    transition: all 0.2s ease;
+}
+
+/* === COMPACT & FOCUS CONTROLS === */
+#timer-layout-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+#timer-layout-controls .mode-btn {
+    height: 24px;
+    min-width: 24px;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    padding: 0 0.5rem;
+    border: 1px solid;
+    position: relative;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+#timer-layout-controls .mode-btn.is-on {
+    color: #1d4ed8;
+    border-color: #93c5fd;
+    background: #dbeafe;
+}
+
+#timer-layout-controls .mode-btn.is-off {
+    color: #6b7280;
+    border-color: #d1d5db;
+    background: #f3f4f6;
+}
+
+@keyframes focus-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.42); transform: scale(1); }
+    50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); transform: scale(1.03); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); transform: scale(1); }
+}
+
+#critical-view-toggle.is-on {
+    color: #b91c1c !important;
+    border-color: #fca5a5 !important;
+    background: #fee2e2 !important;
+    animation: focus-pulse 1.25s ease-in-out infinite;
+}
+
+#timer-layout-controls .mode-btn::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 7px);
+    transform: translateX(-50%) translateY(2px);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 0.45rem;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 0.28rem 0.48rem;
+    box-shadow: 0 8px 24px rgba(2, 6, 23, 0.35);
+    z-index: 30;
+    transition: opacity 90ms ease-out, transform 90ms ease-out;
+}
+
+#timer-layout-controls .mode-btn:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Whole-App Compact Mode */
+@supports (zoom: 1) {
+    body.compact-mode #app {
+        zoom: 0.75;
+    }
+}
+
+@supports not (zoom: 1) {
+    body.compact-mode #app {
+        transform: scale(0.75);
+        transform-origin: top center;
+    }
+}
+
+/* Focus Mode: Show Only File Details + Workflow Timer */
+body.force-critical-mode #top-header-panel,
+body.force-critical-mode #app-main-tabs,
+body.force-critical-mode #important-reminders-details,
+body.force-critical-mode footer,
+body.force-critical-mode #tab-dashboard,
+body.force-critical-mode #tab-notepad,
+body.force-critical-mode #tab-resources {
+    display: none !important;
+}
+
+body.force-critical-mode #tab-workflow {
+    display: block !important;
+    margin-top: 0 !important;
+}
+
+/* === TAB NAVIGATION === */
+.tab-link {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0.55rem 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #475569;
+    background-color: #f0f7ff;
+    border: none;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 4px solid transparent;
+}
+
+.tab-link:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    right: -1px;
+    top: 20%;
+    height: 60%;
+    width: 2px;
+    background: rgba(203, 213, 225, 0.6);
+}
+
+.tab-link:hover:not(.active) {
+    background-color: #e0efff;
+    color: #1e293b;
+}
+
+.tab-link[onclick*="tab-workflow"].active {
+    background-color: #0891b2 !important;
+    color: #ffffff !important;
+    border-bottom: 4px solid #0e7490 !important;
+}
+
+.tab-link[onclick*="tab-dashboard"].active {
+    background-color: #9333ea !important;
+    color: #ffffff !important;
+    border-bottom: 4px solid #6b21a8 !important;
+}
+
+.tab-link[onclick*="tab-notepad"].active {
+    background-color: #10b981 !important;
+    color: #ffffff !important;
+    border-bottom: 4px solid #059669 !important;
+}
+
+.tab-link[onclick*="tab-resources"].active {
+    background-color: #eab308 !important;
+    color: #000000 !important;
+    border-bottom: 4px solid #a16207 !important;
+}
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* === COLLAPSIBLE PANELS & SUB-SECTIONS === */
+.panel-details {
+    border: none !important;
+    background: transparent !important;
+}
+
+.panel-summary {
+    padding: 0.75rem 1.25rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #4b5563;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #f3f4f6;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+}
+
+.panel-summary::-webkit-details-marker { display: none; }
+
+.panel-details[open] > .panel-summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.panel-summary .panel-icon {
+    transition: transform 0.2s ease;
+}
+
+.panel-details[open] > .panel-summary .panel-icon {
+    transform: rotate(90deg);
+}
+
+.panel-content {
+    padding: 1.25rem;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-bottom-left-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
+    background: #ffffff;
+}
+
+/* Dashboard Sub-Collapsible Panels */
+.sub-collapse-details {
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.sub-collapse-summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.08), rgba(168, 85, 247, 0.06));
+    user-select: none;
+}
+
+.sub-collapse-summary::-webkit-details-marker { display: none; }
+
+.sub-collapse-details[open] > .sub-collapse-summary {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.sub-collapse-chevron {
+    transition: transform 0.2s ease;
+}
+
+.sub-collapse-details[open] > .sub-collapse-summary .sub-collapse-chevron {
+    transform: rotate(90deg);
+}
+
+/* === PILL SWITCH === */
+.pill-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 24px;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 9999px;
+}
+
+.pill-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.pill-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: #fee2e2;
+    transition: 0.35s;
+    border-radius: 9999px;
+    border: 1px solid #fecaca;
+}
+
+.pill-slider:before {
+    position: absolute;
+    content: "OFF";
+    height: 18px;
+    width: 21px;
+    left: 2px;
+    top: 2px;
+    background-color: #ef4444;
+    transition: 0.35s;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 6.5px;
+    font-weight: 900;
+    color: #ffffff;
+}
+
+input:checked + .pill-slider:before {
+    content: "ON";
+    transform: translateX(23px);
+    background-color: #22c55e;
+}
+
+input:checked + .pill-slider {
+    background-color: #dcfce7;
+    border-color: #bbf7d0;
+}
+
+/* === ORIGINAL FOLDER-BASED NOTEBOOK STYLES === */
+.fd-notebook-layout {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    min-height: 480px;
+}
+
+.fd-notebook-sidebar {
+    border-right: 1px solid #e5e7eb;
+    background: linear-gradient(180deg, #ecfdf5 0%, #f8fafc 100%);
+    padding: 0.9rem;
+    overflow-y: auto;
+}
+
+.fd-notebook-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    border: 1px solid #d1fae5;
+    border-radius: 0.55rem;
+    background: #ffffff;
+    padding: 0.35rem 0.45rem;
+    margin-bottom: 0.35rem;
+    color: #065f46;
+}
+
+.fd-notebook-item.is-active {
+    border-color: #10b981;
+    background: #10b981;
+    color: #ffffff;
+}
+
+.fd-notebook-select {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.1;
+    cursor: pointer;
+}
+
+.fd-notebook-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fd-notebook-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.fd-notebook-item:hover .fd-notebook-actions,
+.fd-notebook-item.is-active .fd-notebook-actions {
+    opacity: 1;
+}
+
+.fd-notebook-action-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.fd-notebook-editor {
+    padding: 0.85rem;
+    background: #ffffff;
+    min-width: 0;
+}
+
+.fd-notebook-editor-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    margin-bottom: 0.6rem;
+}
+
+#active-notebook-name {
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 1px dashed #86efac;
+}
+
+#notesArea {
+    height: auto !important;
+    background-color: transparent;
+    border: none !important;
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+.ql-container.ql-snow {
+    border: none !important;
+    height: auto !important;
+    min-height: 360px;
+    background-color: #f8fbff;
+    background-image: radial-gradient(rgba(100, 116, 139, 0.35) 1.25px, transparent 1.45px);
+    background-size: 20px 20px;
+}
+
+.ql-editor {
+    height: auto !important;
+    min-height: 360px;
+    overflow-y: hidden !important;
+    background: transparent !important;
+}
+
+.ql-toolbar.ql-snow {
+    border: none !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    background-color: #f9fafb;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+}
+
+@media (max-width: 920px) {
+    .fd-notebook-layout {
+        grid-template-columns: 1fr;
+    }
+    .fd-notebook-sidebar {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        max-height: 200px;
+    }
+}
+
+/* === ORIGINAL CUSTOM LINKS PILL GRID === */
+#links-grid > a:last-child:nth-child(odd) {
+    grid-column: span 2;
+}
+
+@media (max-width: 639px) {
+    #links-grid > a:last-child:nth-child(odd) {
+        grid-column: span 1;
+    }
+}
+
+.link-pill {
+    display: flex;
+    align-items: center;
+    padding: 0.85rem;
+    border-radius: 12px;
+    color: #ffffff;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+    position: relative;
+    text-decoration: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.link-pill:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.08);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.12);
+}
+
+.edit-link, .delete-link {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: 0.2s;
+    border: none;
+    cursor: pointer;
+}
+
+.edit-link { right: 38px; }
+.delete-link { right: 10px; }
+
+.link-pill:hover .edit-link,
+.link-pill:hover .delete-link {
+    opacity: 1;
+}
+
+/* === HEATMAP === */
+.workflow-heatmap-months {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+@media (max-width: 900px) {
+    .workflow-heatmap-months { grid-template-columns: 1fr; }
+}
+
+.workflow-heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.3rem;
+    padding: 0.7rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.9rem;
+    background: #ffffff;
+}
+
+.workflow-heatmap-day-label {
+    text-align: center;
+    font-size: 0.6rem;
+    font-weight: 900;
+    color: #94a3b8;
+}
+
+.workflow-heatmap-cell {
+    aspect-ratio: 1 / 1;
+    border-radius: 0.45rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 800;
+    cursor: default;
+    transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.workflow-heatmap-cell:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12);
+}
+
+.workflow-heatmap-cell.level-0 { background: #f1f5f9; color: #94a3b8; }
+.workflow-heatmap-cell.level-1 { background: #86efac; color: #14532d; }
+.workflow-heatmap-cell.level-2 { background: #22c55e; color: #ffffff; }
+.workflow-heatmap-cell.level-3 { background: #15803d; color: #ffffff; }
+.workflow-heatmap-cell.is-today { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+.workflow-heatmap-tooltip {
+    position: fixed;
+    z-index: 1200;
+    min-width: 170px;
+    max-width: 240px;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0.85rem;
+    border: 1px solid #dbeafe;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18);
+    color: #0f172a;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+}
+
+.workflow-heatmap-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+/* === TOAST & MODALS === */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    z-index: 99999;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 280px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    color: #ffffff !important;
+    font-weight: 700;
+    font-size: 0.85rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.35);
+}
+
+.toast.success { background: #10b981 !important; }
+.toast.error { background: #ef4444 !important; }
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 60;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-box {
+    background: #ffffff;
+    border-radius: 0.85rem;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 30rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+/* === IMPORTANT REMINDERS === */
+.important-reminders-summary {
+    list-style: none;
+    cursor: pointer;
+}
+.important-reminders-summary::-webkit-details-marker { display: none; }
+.important-reminders-icon { transition: transform 0.2s ease; }
+#important-reminders-details[open] .important-reminders-icon { transform: rotate(90deg); }
+
+/* =========================================================
+   COMPREHENSIVE DARK MODE STYLES
+   ========================================================= */
+body.dark-mode {
+    background-color: #0b1220 !important;
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode .bg-white,
+body.dark-mode .panel-content,
+body.dark-mode .modal-box,
+body.dark-mode .sub-collapse-details {
+    background-color: #111827 !important;
+}
+
+body.dark-mode .bg-gray-50,
+body.dark-mode .bg-slate-50,
+body.dark-mode .bg-slate-100,
+body.dark-mode .bg-slate-200,
+body.dark-mode .panel-summary,
+body.dark-mode .sub-collapse-summary {
+    background-color: #0f172a !important;
+}
+
+body.dark-mode .bg-blue-50,
+body.dark-mode .bg-blue-50\/40,
+body.dark-mode .bg-cyan-50,
+body.dark-mode .bg-indigo-50,
+body.dark-mode .bg-purple-50,
+body.dark-mode .bg-emerald-50,
+body.dark-mode .bg-emerald-50\/40,
+body.dark-mode .bg-yellow-50,
+body.dark-mode .bg-red-50 {
+    background-color: #1e293b !important;
+}
+
+/* High-contrast light text on dark backgrounds */
+body.dark-mode .text-gray-900,
+body.dark-mode .text-gray-800,
+body.dark-mode .text-gray-700,
+body.dark-mode .text-slate-900,
+body.dark-mode .text-slate-800,
+body.dark-mode .text-slate-700,
+body.dark-mode .text-blue-950,
+body.dark-mode .text-blue-900,
+body.dark-mode .text-cyan-900,
+body.dark-mode .text-indigo-950,
+body.dark-mode .text-indigo-900,
+body.dark-mode .text-purple-950,
+body.dark-mode .text-purple-900,
+body.dark-mode .text-emerald-950,
+body.dark-mode .text-emerald-900,
+body.dark-mode .text-emerald-800,
+body.dark-mode .text-yellow-900 {
+    color: #f8fafc !important;
+}
+
+body.dark-mode .text-blue-800,
+body.dark-mode .text-blue-700,
+body.dark-mode .text-blue-600,
+body.dark-mode .text-indigo-700,
+body.dark-mode .text-indigo-600 {
+    color: #93c5fd !important;
+}
+
+body.dark-mode .text-purple-600 {
+    color: #d8b4fe !important;
+}
+
+body.dark-mode .text-emerald-700,
+body.dark-mode .text-emerald-600 {
+    color: #6ee7b7 !important;
+}
+
+body.dark-mode .text-gray-600,
+body.dark-mode .text-gray-500,
+body.dark-mode .text-gray-400,
+body.dark-mode .text-slate-600,
+body.dark-mode .text-slate-500 {
+    color: #94a3b8 !important;
+}
+
+body.dark-mode .border,
+body.dark-mode .border-gray-100,
+body.dark-mode .border-gray-200,
+body.dark-mode .border-gray-300,
+body.dark-mode .border-slate-200,
+body.dark-mode .border-blue-100,
+body.dark-mode .border-blue-200,
+body.dark-mode .border-cyan-100,
+body.dark-mode .border-emerald-100,
+body.dark-mode .border-indigo-100,
+body.dark-mode .border-indigo-200,
+body.dark-mode .panel-content,
+body.dark-mode .panel-summary,
+body.dark-mode .sub-collapse-details,
+body.dark-mode .sub-collapse-summary {
+    border-color: #334155 !important;
+}
+
+body.dark-mode input:not([type="checkbox"]),
+body.dark-mode select,
+body.dark-mode textarea {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.88);
+}
+
+body.dark-mode input::placeholder {
+    color: #64748b !important;
+}
+
+body.dark-mode .btn-reset-workflow {
+    background-color: #1f2937 !important;
+    color: #cbd5e1 !important;
+    border-color: #475569 !important;
+}
+
+body.dark-mode .btn-reset-workflow:hover:enabled {
+    background-color: #7f1d1d !important;
+    color: #fecaca !important;
+    border-color: #991b1b !important;
+}
+
+body.dark-mode .tab-link {
+    background-color: #162133;
+    color: #cbd5e1;
+}
+
+body.dark-mode .tab-link:hover:not(.active) {
+    background-color: #1f2d44;
+    color: #ffffff;
+}
+
+body.dark-mode .title-dark-toggle {
+    justify-content: flex-end;
+    background: linear-gradient(to right, #1e293b, #0f172a);
+    border-color: #334155;
+}
+
+body.dark-mode .title-dark-toggle .title-dark-toggle-icon {
+    background: #0f172a;
+    color: #facc15;
+}
+
+body.dark-mode .time-widget {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #1e3a8a !important;
+}
+
+body.dark-mode .time-widget .date-display {
+    color: #f8fafc !important;
+    border-bottom-color: #475569 !important;
+}
+
+body.dark-mode .timer-display:not(.overdue) {
+    color: #93c5fd !important;
+}
+
+body.dark-mode #timer-layout-controls .mode-btn.is-off {
+    color: #cbd5e1;
+    border-color: #334155;
+    background: #1f2937;
+}
+
+body.dark-mode #timer-layout-controls .mode-btn.is-on {
+    color: #dbeafe;
+    border-color: #3b82f6;
+    background: #1e3a8a;
+}
+
+/* Dashboard Table Dark Mode Fixes */
+body.dark-mode table,
+body.dark-mode thead,
+body.dark-mode tbody,
+body.dark-mode tr,
+body.dark-mode th,
+body.dark-mode td {
+    border-color: #334155 !important;
+}
+
+body.dark-mode th {
+    background-color: #0f172a !important;
+    color: #cbd5e1 !important;
+}
+
+body.dark-mode td {
+    background-color: #111827 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode tbody tr:hover td {
+    background-color: #1e293b !important;
+}
+
+/* Heatmap Dark Mode */
+body.dark-mode .workflow-heatmap-months {
+    background: #0f172a !important;
+}
+
+body.dark-mode .workflow-heatmap-grid {
+    background: #111827 !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .workflow-heatmap-cell.level-0 { background: #1e293b; color: #94a3b8; }
+body.dark-mode .workflow-heatmap-cell.level-1 { background: #166534; color: #dcfce7; }
+body.dark-mode .workflow-heatmap-cell.level-2 { background: #15803d; color: #ffffff; }
+body.dark-mode .workflow-heatmap-cell.level-3 { background: #22c55e; color: #052e16; }
+
+body.dark-mode .workflow-heatmap-tooltip {
+    background: rgba(15, 23, 42, 0.96) !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+/* Folder Notebook Dark Mode */
+body.dark-mode .fd-notebook-sidebar {
+    background: linear-gradient(180deg, #0f172a 0%, #0b1325 100%) !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .fd-notebook-item {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+
+body.dark-mode .fd-notebook-item.is-active {
+    background: #059669 !important;
+    border-color: #10b981 !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .fd-notebook-editor {
+    background: #0b1325 !important;
+}
+
+body.dark-mode #active-notebook-name {
+    color: #e2e8f0 !important;
+    border-bottom-color: #10b981 !important;
+}
+
+body.dark-mode .ql-toolbar.ql-snow,
+body.dark-mode .ql-container.ql-snow {
+    background-color: #0b1325 !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .ql-editor {
+    color: #f1f5f9 !important;
+}
+
+body.dark-mode .ql-editor.ql-blank::before {
+    color: #64748b !important;
+}
+
+body.dark-mode .ql-snow .ql-stroke {
+    stroke: #cbd5e1 !important;
+}
+
+body.dark-mode .ql-snow .ql-fill,
+body.dark-mode .ql-snow .ql-picker {
+    color: #cbd5e1 !important;
+    fill: #cbd5e1 !important;
+}
+
+body.dark-mode .ql-snow .ql-picker-options {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode #important-reminders-details {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode #important-reminders-details > div {
+    background: #111827 !important;
+}
+</style>
+</head>
+<body class="bg-gray-50">
+<div id="app" class="min-h-screen p-4 sm:p-8 pb-20">
+<div class="max-w-full mx-auto space-y-4 px-2 sm:px-6">
+
+<!-- TOP HEADER PANEL -->
+<div id="top-header-panel" class="w-full">
+    <div class="bg-white p-3 rounded-xl shadow-lg border border-gray-100">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="header-left-content">
+                <div class="p-3 bg-blue-50 rounded-xl shadow-sm mb-3 flex items-center justify-between gap-3">
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-800 flex items-center gap-3">
+                        <i data-lucide="timer" class="w-8 h-8 text-blue-600"></i>
+                        Workflow Timer
+                    </h1>
+                    <button id="dark-mode-toggle" type="button" class="title-dark-toggle" aria-label="Toggle Dark Mode" title="Toggle Dark Mode">
+                        <span id="dark-mode-icon" class="title-dark-toggle-icon" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                <div class="welcome-note-container">
+                    <p id="welcome-message-container" class="text-lg sm:text-xl text-gray-700 font-bold p-3 bg-gray-50 rounded-lg border border-blue-200 flex items-center flex-wrap mb-3">
+                        <i data-lucide="contact" class="w-6 h-6 text-blue-600 mr-2"></i>
+                        <span class="text-gray-700 whitespace-nowrap">Welcome,</span>
+                        <input type="text" id="user-name-input"
+                               class="ml-2 bg-transparent border-b-2 border-blue-300 focus:border-blue-600 focus:outline-none text-blue-700 font-extrabold placeholder-gray-400 transition-colors text-center"
+                               placeholder="Your name..."
+                               autocomplete="off"
+                               maxlength="24"
+                               style="min-width: 120px; width: 16ch; max-width: 100%;">
+                        <span class="text-gray-700 ml-1 whitespace-nowrap">! ✨</span>
+                    </p>
+
+                    <div class="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                        <p class="text-[11px] text-gray-600 font-medium leading-relaxed">
+                            <span class="text-blue-700 font-semibold mr-1">
+                                <i data-lucide="info" class="w-3.5 h-3.5 inline-block align-text-bottom"></i> Note:
+                            </span>
+                            This Workflow Timer is for personal use to track output completion times and daily productivity.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="clock-widget" class="time-widget">
+                <div class="flex items-center justify-center gap-2 mb-1 w-full">
+                    <i data-lucide="calendar" class="clock-icon w-5 h-5 text-black shrink-0"></i>
+                    <span class="widget-label text-base sm:text-xl leading-none"><strong>TODAY IS</strong></span>
+                </div>
+                <span id="date-display" class="date-display text-lg sm:text-xl">...</span>
+                <span id="time-display" class="time-display text-3xl sm:text-4xl">...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN NAVIGATION TABS (Files & Dashboard Merged into Dashboard) -->
+<div id="app-main-tabs" class="w-full bg-blue-100 rounded-xl shadow-sm border border-gray-200 flex mb-4 overflow-hidden">
+    <button class="tab-link active" onclick="openTab(event, 'tab-workflow')">
+        <i data-lucide="timer" class="w-4 h-4"></i> <span>Timer</span>
+    </button>
+    <button class="tab-link" onclick="openTab(event, 'tab-dashboard')">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i> <span>Dashboard</span>
+    </button>
+    <button class="tab-link" onclick="openTab(event, 'tab-notepad')">
+        <i data-lucide="edit-3" class="w-4 h-4"></i> <span>Notepad</span>
+    </button>
+    <button class="tab-link" onclick="openTab(event, 'tab-resources')">
+        <i data-lucide="link" class="w-4 h-4"></i> <span>Resources</span>
+    </button>
+</div>
+
+<!-- TAB 1: TIMER -->
+<div id="tab-workflow" class="tab-content active">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+
+        <!-- Left Card: FILE DETAILS -->
+        <div class="bg-white rounded-2xl shadow-xl border-l-4 border-blue-600 p-0 h-full flex flex-col">
+            <details class="panel-details flex-1 flex flex-col" open>
+                <summary class="panel-summary !bg-blue-50">
+                    <h2 class="relative text-xl font-semibold text-blue-900 flex items-center gap-2">
+                        <i data-lucide="settings" class="w-6 h-6 text-blue-600"></i>
+                        <span class="relative">FILE DETAILS
+                            <span class="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full"></span>
+                        </span>
+                    </h2>
+                    <i data-lucide="chevron-right" class="panel-icon w-6 h-6 text-blue-600"></i>
+                </summary>
+
+                <div class="panel-content flex-1 flex flex-col justify-between space-y-4">
+                    <div class="space-y-4 pt-2">
+                        <!-- 1. Input File Name (First Option) -->
+                        <div>
+                            <label for="file-name" class="block text-sm font-bold text-gray-700 mb-1.5">Input File Name*</label>
+                            <input type="text" id="file-name" placeholder="e.g., File 1, Quarterly Report, Design Mockup..."
+                                   class="w-full p-2.5 border border-gray-300 rounded-xl text-base font-semibold text-gray-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none">
+                        </div>
+
+                        <!-- 2. Select Mode: Timer / Stopwatch / Both -->
+                        <div>
+                            <label for="timer-mode" class="block text-sm font-bold text-gray-700 mb-1.5">Select Mode*</label>
+                            <select id="timer-mode" class="w-full p-2.5 border border-gray-300 rounded-xl text-base font-bold text-gray-800 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none">
+                                <option value="timer" selected>Timer</option>
+                                <option value="stopwatch">Stopwatch</option>
+                                <option value="both">Both</option>
+                            </select>
+                        </div>
+
+                        <!-- 3. Input Target Time (HH:MM:SS)* -->
+                        <div id="target-time-container">
+                            <label for="target-time-input" class="block text-sm font-bold text-gray-700 mb-1.5">Input Target Time (HH:MM:SS)*</label>
+                            <input type="text" id="target-time-input" placeholder="00:30:00" maxlength="8"
+                                   class="w-full py-2 px-4 border border-gray-300 rounded-xl text-4xl font-mono font-black text-center tracking-widest text-gray-800 focus:border-blue-500 focus:ring-blue-500 shadow-inner"
+                                   value="00:30:00">
+                            <p id="target-time-error" class="text-xs font-bold text-red-500 mt-1 hidden">Invalid format. Must be HH:MM:SS.</p>
+                        </div>
+
+                        <!-- 4. Time Targets Summary -->
+                        <div id="time-targets-container" class="w-full bg-blue-50 p-4 rounded-xl border border-blue-200">
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="text-blue-700 font-extrabold text-sm uppercase tracking-wider flex items-center gap-1.5">
+                                    <i data-lucide="target" class="w-4 h-4 text-blue-600"></i>
+                                    Time Targets
+                                </p>
+                                <span id="time-target-mode-badge" class="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-blue-600 text-white">Timer Mode</span>
+                            </div>
+                            <div id="time-targets-summary" class="space-y-1.5 text-sm font-bold text-slate-800"></div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Audio Notifications -->
+                    <div id="audio-notification-row" class="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-white rounded-xl border border-gray-200 w-full shadow-sm">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="volume-2" class="w-4 h-4 text-indigo-500"></i>
+                            <span class="text-[11px] font-black text-gray-700 uppercase tracking-wider">Audio Notifications</span>
+                        </div>
+
+                        <div class="flex items-center gap-2 ml-auto">
+                            <select id="alert-minutes" class="text-xs font-bold border border-gray-300 rounded-lg px-2 py-1 bg-white text-gray-800">
+                                <option value="5" selected>5 mins left</option>
+                                <option value="10">10 mins left</option>
+                                <option value="15">15 mins left</option>
+                                <option value="30">30 mins left</option>
+                            </select>
+
+                            <button type="button" id="test-beep-btn" class="px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition">
+                                Test Beep
+                            </button>
+
+                            <label class="pill-switch" title="Enable/Disable Beep Notifications">
+                                <input id="beep-alerts" type="checkbox" checked>
+                                <span class="pill-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <!-- Right Card: WORKFLOW TIMER (With Compact & Focus Mode Restored) -->
+        <div class="bg-white rounded-2xl shadow-xl border-l-4 border-cyan-500 p-0 h-full flex flex-col">
+            <details class="panel-details flex-1 flex flex-col bg-white rounded-b-2xl" open>
+                <summary class="panel-summary !bg-cyan-50 border-b border-cyan-100">
+                    <h2 class="relative text-xl font-semibold text-cyan-900 flex items-center gap-2">
+                        <i data-lucide="clock" class="w-6 h-6 text-cyan-600"></i>
+                        <span class="relative">
+                            WORKFLOW TIMER
+                            <span class="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full"></span>
+                        </span>
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <div id="timer-layout-controls">
+                            <button id="compact-mode-toggle" type="button" class="mode-btn is-off" aria-label="Compact mode off" data-tip="Compact Off: regular spacing">
+                                COMPACT
+                            </button>
+                            <button id="critical-view-toggle" type="button" class="mode-btn is-off" aria-label="Focus mode off" data-tip="Focus Off: full interface">
+                                FOCUS
+                            </button>
+                        </div>
+                        <i data-lucide="chevron-right" class="panel-icon w-6 h-6 text-cyan-600"></i>
+                    </div>
+                </summary>
+
+                <div class="panel-content flex-1 flex flex-col justify-between gap-4 bg-white">
+                    <!-- Controls + Active Deliverable Pill -->
+                    <div class="space-y-3 pt-2">
+                        <div class="grid grid-cols-2 gap-3">
+                            <button id="btn-start-pause" type="button" class="workflow-btn btn-start-workflow">
+                                <i data-lucide="play" class="w-4 h-4"></i> Start
+                            </button>
+                            <button id="btn-complete-log" type="button" class="workflow-btn btn-complete-workflow" disabled>
+                                <i data-lucide="check-circle" class="w-4 h-4"></i> Complete &amp; Log
+                            </button>
+                            <button id="btn-reset-timer" type="button" class="workflow-btn btn-reset-workflow col-span-2">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset
+                            </button>
+                        </div>
+
+                        <div class="flex justify-center">
+                            <div class="flex items-center gap-2 px-4 py-1.5 bg-gray-50 border border-gray-200 rounded-full shadow-sm text-gray-700 text-xs font-bold max-w-full">
+                                <i data-lucide="disc-3" class="w-3.5 h-3.5 text-cyan-600 animate-spin-slow flex-shrink-0"></i>
+                                <span id="active-file-label" class="truncate">File 1</span>
+                                <span class="text-gray-400">|</span>
+                                <span id="active-target-pill" class="font-mono text-blue-700">Target: 00:30:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Timer & Stopwatch Displays (Balanced vertical height across modes) -->
+                    <div class="flex-1 flex flex-col justify-center gap-3">
+                        <!-- Timer Display (Shown when Mode = Timer or Both) -->
+                        <div id="countdown-stage-card" class="flex-1 flex justify-between items-center py-4 px-4 border-l-4 border-blue-600 bg-blue-50/30 border border-blue-100 rounded-r-xl">
+                            <div>
+                                <div class="text-lg font-extrabold text-gray-800">Timer (Countdown)</div>
+                                <div class="text-xs font-semibold text-gray-500 mt-0.5">Time remaining until target completion</div>
+                            </div>
+                            <div class="text-right">
+                                <span id="countdown-display" class="timer-display text-4xl sm:text-5xl font-mono block">00:30:00</span>
+                            </div>
+                        </div>
+
+                        <!-- Stopwatch Display (Shown when Mode = Stopwatch or Both) -->
+                        <div id="stopwatch-stage-card" class="hidden flex-1 flex justify-between items-center py-4 px-4 border-l-4 border-emerald-500 bg-emerald-50/30 border border-emerald-100 rounded-r-xl">
+                            <div>
+                                <div class="text-lg font-extrabold text-gray-800">Stopwatch (Elapsed)</div>
+                                <div class="text-xs font-semibold text-gray-500 mt-0.5">Active time elapsed on deliverable</div>
+                            </div>
+                            <div class="text-right">
+                                <span id="stopwatch-display" class="timer-display !text-emerald-700 text-4xl sm:text-5xl font-mono block">00:00:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs text-gray-600 font-medium flex items-center gap-2">
+                        <i data-lucide="check-circle-2" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
+                        <span>Press <strong>Complete &amp; Log</strong> when finished to record your deliverable in the Dashboard.</span>
+                    </div>
+                </div>
+            </details>
+        </div>
+
+    </div>
+</div>
+
+<!-- TAB 2: MERGED DASHBOARD (Stats + Collapsible Heatmap + Collapsible Chart + Files Table) -->
+<div id="tab-dashboard" class="tab-content">
+    <div class="bg-white rounded-2xl shadow-xl border-l-4 border-purple-600 p-0">
+        <details class="panel-details" open>
+            <summary class="panel-summary !bg-purple-50">
+                <h2 class="relative text-xl font-semibold text-purple-900 flex items-center gap-2">
+                    <i data-lucide="bar-chart-3" class="w-6 h-6 text-purple-600"></i>
+                    <span class="relative">PRODUCTIVITY DASHBOARD
+                        <span class="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-purple-500 to-purple-400 rounded-full"></span>
+                    </span>
+                </h2>
+                <i data-lucide="chevron-right" class="panel-icon w-6 h-6 text-purple-600"></i>
+            </summary>
+
+            <div class="panel-content space-y-5">
+                <!-- 1. Summary Stat Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                    <div class="p-4 rounded-xl bg-indigo-50 border border-indigo-100 text-center">
+                        <div class="text-[11px] font-black uppercase tracking-wider text-indigo-600">Total Files</div>
+                        <div id="stat-total-files" class="text-3xl font-black text-indigo-950 mt-1">0</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-purple-50 border border-purple-100 text-center">
+                        <div class="text-[11px] font-black uppercase tracking-wider text-purple-600">Total Active Hours</div>
+                        <div id="stat-total-hours" class="text-3xl font-black text-purple-950 mt-1">0.00</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-center">
+                        <div class="text-[11px] font-black uppercase tracking-wider text-emerald-600">On-Time Rate</div>
+                        <div id="stat-ontime-rate" class="text-3xl font-black text-emerald-950 mt-1">N/A</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-blue-50 border border-blue-100 text-center">
+                        <div class="text-[11px] font-black uppercase tracking-wider text-blue-600">Daily Average</div>
+                        <div id="stat-daily-avg" class="text-3xl font-black text-blue-950 mt-1">0.00 hrs</div>
+                    </div>
+                </div>
+
+                <!-- 2. Collapsible Activity Heatmap (Last 3 Months) -->
+                <details class="sub-collapse-details" open>
+                    <summary class="sub-collapse-summary">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="calendar-range" class="w-5 h-5 text-blue-600"></i>
+                            <span class="text-sm font-black uppercase tracking-wider text-gray-800">Activity Heatmap (Last 3 Months)</span>
+                        </div>
+                        <div class="flex items-center gap-3 ml-auto">
+                            <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
+                                <span>Less</span>
+                                <span class="w-3.5 h-3.5 rounded workflow-heatmap-cell level-0 inline-block"></span>
+                                <span class="w-3.5 h-3.5 rounded workflow-heatmap-cell level-1 inline-block"></span>
+                                <span class="w-3.5 h-3.5 rounded workflow-heatmap-cell level-2 inline-block"></span>
+                                <span class="w-3.5 h-3.5 rounded workflow-heatmap-cell level-3 inline-block"></span>
+                                <span>More</span>
+                            </div>
+                            <i data-lucide="chevron-right" class="sub-collapse-chevron w-5 h-5 text-blue-600"></i>
+                        </div>
+                    </summary>
+                    <div>
+                        <div id="workflow-heatmap-months" class="workflow-heatmap-months"></div>
+                        <div id="workflow-heatmap-tooltip" class="workflow-heatmap-tooltip" aria-hidden="true"></div>
+                    </div>
+                </details>
+
+                <!-- 3. Collapsible Trend Bar Chart -->
+                <details class="sub-collapse-details" open>
+                    <summary class="sub-collapse-summary">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="line-chart" class="w-5 h-5 text-indigo-600"></i>
+                            <span class="text-sm font-black uppercase tracking-wider text-gray-800">Recent Outputs: Time Taken vs. Target (Minutes)</span>
+                        </div>
+                        <i data-lucide="chevron-right" class="sub-collapse-chevron w-5 h-5 text-indigo-600"></i>
+                    </summary>
+                    <div class="p-4 bg-gray-50">
+                        <div class="h-64">
+                            <canvas id="outputTrendChart"></canvas>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- 4. Merged Files / Output Performance Table -->
+                <div class="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
+                    <!-- Table Header & Action Buttons -->
+                    <div class="px-4 py-3 bg-indigo-50 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="folder-check" class="w-5 h-5 text-indigo-600"></i>
+                            <span class="text-sm font-black uppercase tracking-wider text-indigo-900">Files &amp; Output Performance Log</span>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2">
+                            <button id="generate-report-btn" type="button" class="px-3 py-1.5 bg-slate-700 text-white rounded-lg hover:bg-slate-800 text-xs font-bold flex items-center gap-1 shadow-sm transition">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Generate PDF Summary
+                            </button>
+                            <button id="manual-log-btn" type="button" class="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs font-bold flex items-center gap-1 shadow-sm transition">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Manual Log
+                            </button>
+                            <button id="export-csv-btn" type="button" class="px-3 py-1.5 bg-pink-600 text-white rounded-lg hover:bg-pink-700 text-xs font-bold flex items-center gap-1 shadow-sm transition">
+                                <i data-lucide="table-2" class="w-3.5 h-3.5"></i> Export CSV
+                            </button>
+                            <button id="export-logs-btn" type="button" class="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-bold flex items-center gap-1 shadow-sm transition">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i> Export JSON
+                            </button>
+                            <button id="import-logs-btn" type="button" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-bold flex items-center gap-1 shadow-sm transition">
+                                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Import JSON
+                            </button>
+                            <button id="clear-all-logs" type="button" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs font-bold flex items-center gap-1 shadow-sm transition">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear Logs
+                            </button>
+                            <input type="file" id="log-import-input" accept=".json" class="hidden">
+                        </div>
+                    </div>
+
+                    <!-- Search & Date Filter Toolbar -->
+                    <div class="p-2.5 bg-gray-800 text-gray-200 border-b border-gray-700 space-y-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex items-center gap-1.5 ml-1">
+                                <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-400"></i>
+                            </div>
+
+                            <select id="filter-year" class="h-7 py-0.5 px-2 border-0 rounded-md text-xs font-bold text-gray-900 bg-gray-50 outline-none cursor-pointer">
+                                <option value="all">All Years</option>
+                            </select>
+
+                            <select id="filter-month" class="h-7 py-0.5 px-2 border-0 rounded-md text-xs font-bold text-gray-900 bg-gray-50 outline-none cursor-pointer">
+                                <option value="all">All Months</option>
+                            </select>
+
+                            <select id="filter-status" class="h-7 py-0.5 px-2 border-0 rounded-md text-xs font-bold text-gray-900 bg-gray-50 outline-none cursor-pointer">
+                                <option value="all">All Statuses</option>
+                                <option value="ontime">On Time</option>
+                                <option value="overtime">Overtime</option>
+                                <option value="stopwatch">Stopwatch Only</option>
+                            </select>
+
+                            <div class="flex flex-wrap items-center gap-2 ml-auto">
+                                <label for="date-range-start" class="text-[11px] font-bold flex items-center gap-1 text-gray-300">
+                                    <i data-lucide="calendar-check" class="w-3.5 h-3.5 text-green-400"></i> Start:
+                                </label>
+                                <input type="date" id="date-range-start" class="h-7 px-2 border-0 rounded-md text-xs font-bold text-gray-900 bg-gray-50 outline-none">
+
+                                <label for="date-range-end" class="text-[11px] font-bold flex items-center gap-1 text-gray-300">
+                                    <i data-lucide="calendar-x" class="w-3.5 h-3.5 text-red-400"></i> End:
+                                </label>
+                                <input type="date" id="date-range-end" class="h-7 px-2 border-0 rounded-md text-xs font-bold text-gray-900 bg-gray-50 outline-none">
+
+                                <button id="clear-filter-btn" type="button" class="h-7 px-2.5 rounded-md bg-red-600 text-white font-black text-[10px] uppercase hover:bg-red-700 transition flex items-center gap-1">
+                                    <i data-lucide="x" class="w-3 h-3"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 bg-gray-700/60 p-1 rounded-lg border border-gray-600">
+                            <i data-lucide="search" class="w-3.5 h-3.5 text-indigo-300 ml-1.5"></i>
+                            <input type="text" id="filter-search" placeholder="Search file name..."
+                                   class="w-full h-7 px-2.5 rounded-md text-xs font-bold text-gray-900 bg-gray-50 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Output Performance Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-[11px] font-black uppercase text-gray-600 border-b border-gray-200">
+                                    <th class="py-2.5 px-4">File Name</th>
+                                    <th class="py-2.5 px-4">Mode</th>
+                                    <th class="py-2.5 px-4">Target Time</th>
+                                    <th class="py-2.5 px-4">Time Taken</th>
+                                    <th class="py-2.5 px-4">Status</th>
+                                    <th class="py-2.5 px-4">Completed At</th>
+                                    <th class="py-2.5 px-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-table-body" class="divide-y divide-gray-200 text-xs">
+                                <tr>
+                                    <td colspan="7" class="py-5 px-4 text-center text-gray-500">No outputs recorded yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Summary Footer -->
+                    <div id="log-summary" class="p-3 bg-indigo-50 border-t border-indigo-200 text-xs sm:text-sm font-bold text-indigo-900 flex flex-wrap items-center justify-between gap-2">
+                        <span id="filter-match-count" class="text-[11px] uppercase tracking-wider text-indigo-600">Showing all files</span>
+                        <div>
+                            Total Work Days: <span id="total-worked-days">0</span> | Total Files: <span id="total-files-footer">0</span> | Total Active Hours: <span id="total-active-hours">0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </details>
+    </div>
+</div>
+
+<!-- TAB 3: NOTEPAD (Original Folder-Based Notebook System Restored) -->
+<div id="tab-notepad" class="tab-content">
+    <div class="bg-white rounded-2xl shadow-xl border-l-4 border-emerald-500 p-0">
+        <div class="panel-header px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-emerald-50 rounded-t-2xl">
+            <h2 class="text-xl font-bold text-emerald-800 flex items-center gap-2">
+                <i data-lucide="edit-3" class="w-6 h-6"></i>
+                <span>NOTES</span>
+            </h2>
+            <button id="add-notebook-btn" type="button" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-[10px] font-black uppercase tracking-wider">
+                + New Note
+            </button>
+        </div>
+        <div class="panel-content p-0">
+            <div class="fd-notebook-layout">
+                <aside class="fd-notebook-sidebar" id="fd-notebook-sidebar">
+                    <p class="text-[10px] font-black tracking-[0.18em] uppercase text-emerald-700 mb-3">Folders</p>
+                    <div id="fd-notebook-list"></div>
+                </aside>
+
+                <section class="fd-notebook-editor">
+                    <div class="fd-notebook-editor-top">
+                        <input
+                            type="text"
+                            id="active-notebook-name"
+                            class="w-full bg-transparent outline-none text-emerald-800"
+                            value="QUICK NOTES"
+                            placeholder="Note Name"
+                        >
+                        <div class="flex space-x-2 flex-shrink-0">
+                            <button id="clearBtn" type="button" class="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200" title="Clear"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            <button id="undoBtn" type="button" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-30" title="Undo" disabled><i data-lucide="undo-2" class="w-4 h-4"></i></button>
+                            <button id="redoBtn" type="button" class="p-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-30" title="Redo" disabled><i data-lucide="redo-2" class="w-4 h-4"></i></button>
+                            <button id="copyBtn" type="button" class="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700" title="Copy Text"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                        </div>
+                    </div>
+
+                    <div id="notesEditorContainer" class="h-full border-none">
+                        <div id="notesArea"></div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TAB 4: RESOURCES (Original Custom Links Pill System Restored; Pre-populated FD Links Removed) -->
+<div id="tab-resources" class="tab-content">
+    <div class="bg-white rounded-2xl shadow-xl border-l-4 border-yellow-500 p-0">
+        <div class="panel-header px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-yellow-50 rounded-t-2xl">
+            <h2 class="text-xl font-bold text-yellow-900 flex items-center gap-2">
+                <i data-lucide="link" class="w-6 h-6 text-yellow-600"></i>
+                <span>RESOURCES</span>
+            </h2>
+            <button type="button" onclick="toggleLinkModal(true)" class="bg-yellow-600 text-white px-4 py-1.5 rounded-lg font-black text-[10px] uppercase hover:bg-yellow-700 transition-all shadow-md">
+                + Add New Link
+            </button>
+        </div>
+
+        <div class="panel-content p-4">
+            <div id="links-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+        </div>
+    </div>
+</div>
+
+<!-- DATA BACKUP REMINDER CARD (Inline Horizontal Layout) -->
+<details id="important-reminders-details" class="max-w-full mx-auto mb-6 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-lg" open>
+    <summary class="important-reminders-summary bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-600 px-5 py-2.5 flex items-center justify-between gap-2.5">
+        <div class="flex items-center justify-center gap-2.5">
+            <i data-lucide="shield-check" class="text-white w-4 h-4"></i>
+            <h4 class="text-[13px] font-black text-white uppercase tracking-[0.2em]">DATA BACKUP &amp; STORAGE</h4>
+        </div>
+        <i data-lucide="chevron-right" class="important-reminders-icon text-white w-4 h-4"></i>
+    </summary>
+
+    <div class="p-6 bg-gradient-to-b from-white to-blue-50/30">
+        <div class="relative pl-5 border-l-2 border-indigo-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="absolute -left-[1.25px] top-0 h-6 w-[2.5px] bg-indigo-500 rounded-full"></div>
+            <div>
+                <h5 class="text-indigo-700 font-black text-[12px] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <i data-lucide="save" class="w-4 h-4"></i> Data Backup
+                </h5>
+                <p class="text-[11px] leading-relaxed text-slate-600 font-medium">
+                    Clearing your browser cache or site data <strong class="text-red-500 font-black">permanently deletes</strong> your logged data. Export a backup regularly to keep your data safe.
+                </p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button type="button" onclick="exportBackup()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap">
+                    <i data-lucide="download" class="w-3 h-3"></i> Export Backup
+                </button>
+                <button type="button" onclick="triggerMasterImport()" class="px-4 py-2 bg-green-600 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-green-700 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap">
+                    <i data-lucide="upload" class="w-3 h-3"></i> Import Backup
+                </button>
+            </div>
+        </div>
+    </div>
+</details>
+
+<!-- FOOTER -->
+<footer class="mt-6 mb-6 py-4 border-t border-gray-200/60 text-center">
+    <div class="flex flex-col items-center justify-center gap-1">
+        <span class="px-2.5 py-0.5 bg-gray-100 text-gray-500 rounded-full text-[9px] font-bold uppercase tracking-widest inline-block border border-gray-200/60">
+            | Disclaimer: This tool is for <strong>personal use only</strong> and is <strong>not</strong> an official tool. |
+        </span>
+        <p class="text-[10px] text-gray-400 font-medium tracking-tight">
+            Made by
+            <span class="text-pink-500 font-extrabold hover:text-pink-600 transition-colors cursor-default">
+                Arianne ✨
+            </span>
+            <span class="mx-1 text-gray-300">|</span>
+            Nov. 2025
+        </p>
+    </div>
+</footer>
+
+</div>
+</div>
+
+<!-- MANUAL / EDIT LOG MODAL -->
+<div id="manual-log-modal" class="modal-overlay">
+    <div class="modal-box space-y-3">
+        <div class="flex items-center justify-between border-b pb-2">
+            <h3 id="manual-modal-title" class="text-base font-extrabold text-gray-800">Manual Output Log</h3>
+            <button type="button" onclick="closeManualModal()" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">File Name*</label>
+                <input type="text" id="manual-file-name" placeholder="File 1" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Mode</label>
+                    <select id="manual-mode" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                        <option value="timer">Timer</option>
+                        <option value="stopwatch">Stopwatch</option>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Log Date</label>
+                    <input type="date" id="manual-log-date" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Target Time (HH:MM:SS)</label>
+                    <input type="text" id="manual-target-time" value="00:30:00" class="w-full p-2 border border-gray-300 rounded-lg text-sm font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Time Taken (HH:MM:SS)*</label>
+                    <input type="text" id="manual-elapsed-time" value="00:25:00" class="w-full p-2 border border-gray-300 rounded-lg text-sm font-mono">
+                </div>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t">
+            <button type="button" onclick="closeManualModal()" class="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-bold">Cancel</button>
+            <button id="manual-modal-save-btn" type="button" onclick="saveManualLog()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold">Save Log</button>
+        </div>
+    </div>
+</div>
+
+<!-- ORIGINAL CUSTOM LINK MODAL (Icon Picker + Color Swatches) -->
+<div id="link-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center z-[100] p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden transition-all">
+        <div class="bg-indigo-600 p-4 text-white font-bold text-base uppercase tracking-wider flex items-center gap-2">
+            <i data-lucide="link" class="w-5 h-5 text-white"></i>
+            <span id="link-modal-title">ADD A LINK</span>
+        </div>
+
+        <div class="p-6 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">Title</label>
+                    <input type="text" id="link-title" placeholder="e.g. Work Google Drive" class="w-full p-2.5 border-2 border-gray-200 rounded-xl outline-none focus:border-indigo-500 text-sm font-bold">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">URL</label>
+                    <input type="text" id="link-url" placeholder="https://..." class="w-full p-2.5 border-2 border-gray-200 rounded-xl outline-none focus:border-indigo-500 text-sm font-bold">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Select Icon</label>
+                    <div id="icon-picker" class="grid grid-cols-5 gap-2 p-3 border border-gray-200 rounded-2xl bg-gray-50 max-h-44 overflow-y-auto"></div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Select Color</label>
+                    <div id="color-picker" class="grid grid-cols-5 gap-3 p-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 bg-gray-50 flex gap-3 border-t border-gray-100">
+            <button type="button" onclick="toggleLinkModal(false)" class="flex-1 py-2.5 text-gray-500 font-black uppercase text-[10px] tracking-widest hover:bg-gray-100 rounded-lg">Cancel</button>
+            <button type="button" onclick="saveLink()" class="flex-1 py-2.5 bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest rounded-lg shadow-md hover:bg-indigo-700">Save Link</button>
+        </div>
+    </div>
+</div>
+
+<div id="log-toast-container" class="toast-container"></div>
+<input type="file" id="master-import-input" accept=".json" class="hidden" onchange="importMasterBackup(event)">
+
+<script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+<script>
+// === GLOBAL STATE ===
+const STATE = {
+    isRunning: false,
+    startTime: null,
+    targetEndTimestamp: null,
+    accumulatedMs: 0,
+    intervalId: null,
+    mode: 'timer',
+    targetSeconds: 1800,
+    alertPlayed: false,
+    loggedFiles: [],
+    editingLogId: null,
+    chart: null
+};
+
+const STORAGE_KEYS = {
+    LOGS: 'wf-logged-files',
+    LINKS: 'wf_user_links',
+    NOTEBOOKS: 'wf-notebooks-v1',
+    ACTIVE_NOTEBOOK: 'wf-active-notebook-id-v1',
+    USER_NAME: 'wf_user_display_name',
+    UI_PREFS: 'wf_ui_prefs_v1'
+};
+
+// === TIME HELPERS ===
+function timeToSeconds(t) {
+    if (!t || !/^\d{2}:\d{2}:\d{2}$/.test(t)) return null;
+    const [h, m, s] = t.split(':').map(Number);
+    if (m > 59 || s > 59) return null;
+    return h * 3600 + m * 60 + s;
+}
+
+function secondsToTime(s) {
+    const neg = s < 0;
+    const abs = Math.abs(Math.floor(s));
+    const h = Math.floor(abs / 3600);
+    const m = Math.floor((abs % 3600) / 60);
+    const sec = abs % 60;
+    return (neg ? '-' : '') + [h, m, sec].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function formatClockTime(dateObj) {
+    return dateObj.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    });
+}
+
+function getFileName() {
+    const val = document.getElementById('file-name').value.trim();
+    return val || 'File 1';
+}
+
+function escapeHtmlText(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// === GENERIC BEEP-BEEP SOUND (WEB AUDIO API) ===
+function playGenericBeepBeep() {
+    const enabled = document.getElementById('beep-alerts').checked;
+    if (!enabled) return;
+
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const triggerTone = (startTime, duration, freq) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0.001, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.25, startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        };
+        const now = ctx.currentTime;
+        triggerTone(now, 0.16, 880);
+        triggerTone(now + 0.24, 0.16, 880);
+    } catch (e) {
+        console.warn('Web Audio API unavailable:', e);
+    }
+}
+
+// === TOAST NOTIFICATION ===
+function showLogToast(message, isSuccess = true) {
+    const container = document.getElementById('log-toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${isSuccess ? 'success' : 'error'}`;
+    toast.innerHTML = `
+        <span>${message}</span>
+        <button type="button" onclick="this.parentElement.remove()" class="text-white/80 hover:text-white font-black ml-2">✕</button>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
+}
+
+// === LIVE CLOCK & TIME TARGETS SUMMARY ===
+function updateLiveClock() {
+    const now = new Date();
+    document.getElementById('time-display').textContent = formatClockTime(now);
+    document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    }).toUpperCase();
+    updateTimeTargetsSummary();
+}
+
+function updateTimeTargetsSummary() {
+    const fileName = getFileName();
+    const mode = STATE.mode;
+    const summaryEl = document.getElementById('time-targets-summary');
+    const badgeEl = document.getElementById('time-target-mode-badge');
+    const activeFileLabel = document.getElementById('active-file-label');
+    const activeTargetPill = document.getElementById('active-target-pill');
+
+    activeFileLabel.textContent = fileName;
+
+    const elapsedSec = Math.floor(getElapsedMs() / 1000);
+    const targetDate = STATE.targetEndTimestamp
+        ? new Date(STATE.targetEndTimestamp)
+        : new Date(Date.now() + (STATE.targetSeconds || 0) * 1000);
+    const completionStr = formatClockTime(targetDate);
+
+    let nextHtml = '';
+    if (mode === 'timer') {
+        badgeEl.textContent = 'Timer Mode';
+        activeTargetPill.textContent = `Target: ${secondsToTime(STATE.targetSeconds || 0)}`;
+        nextHtml = `
+            <div class="flex items-center gap-2 text-blue-950">
+                <i data-lucide="hourglass" class="w-4 h-4 text-blue-600 flex-shrink-0"></i>
+                <span><strong>${escapeHtmlText(fileName)}</strong> must be completed on <span class="underline text-blue-700">${completionStr}</span></span>
+            </div>
+        `;
+    } else if (mode === 'stopwatch') {
+        badgeEl.textContent = 'Stopwatch Mode';
+        activeTargetPill.textContent = 'Stopwatch Mode';
+        nextHtml = `
+            <div class="flex items-center gap-2 text-emerald-900">
+                <i data-lucide="play-circle" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+                <span><strong>${escapeHtmlText(fileName)}</strong> stopwatch mode on (${secondsToTime(elapsedSec)} elapsed)</span>
+            </div>
+        `;
+    } else {
+        badgeEl.textContent = 'Timer + Stopwatch';
+        activeTargetPill.textContent = `Target: ${secondsToTime(STATE.targetSeconds || 0)}`;
+        nextHtml = `
+            <div class="flex items-center gap-2 text-blue-950">
+                <i data-lucide="hourglass" class="w-4 h-4 text-blue-600 flex-shrink-0"></i>
+                <span><strong>${escapeHtmlText(fileName)}</strong> must be completed on <span class="underline text-blue-700">${completionStr}</span></span>
+            </div>
+            <div class="flex items-center gap-2 text-emerald-900">
+                <i data-lucide="play-circle" class="w-4 h-4 text-emerald-600 flex-shrink-0"></i>
+                <span><strong>${escapeHtmlText(fileName)}</strong> stopwatch mode on (${secondsToTime(elapsedSec)} elapsed)</span>
+            </div>
+        `;
+    }
+
+    if (summaryEl.dataset.lastHtml !== nextHtml) {
+        summaryEl.dataset.lastHtml = nextHtml;
+        summaryEl.innerHTML = nextHtml;
+        lucide.createIcons();
+    }
+}
+
+// === MODE & TARGET TIME ===
+function applyModeVisibility() {
+    const mode = document.getElementById('timer-mode').value;
+    STATE.mode = mode;
+
+    const countdownCard = document.getElementById('countdown-stage-card');
+    const stopwatchCard = document.getElementById('stopwatch-stage-card');
+    const targetContainer = document.getElementById('target-time-container');
+
+    if (mode === 'timer') {
+        countdownCard.classList.remove('hidden');
+        stopwatchCard.classList.add('hidden');
+        targetContainer.classList.remove('opacity-50');
+    } else if (mode === 'stopwatch') {
+        countdownCard.classList.add('hidden');
+        stopwatchCard.classList.remove('hidden');
+        targetContainer.classList.add('opacity-50');
+    } else {
+        countdownCard.classList.remove('hidden');
+        stopwatchCard.classList.remove('hidden');
+        targetContainer.classList.remove('opacity-50');
+    }
+
+    updateDisplays();
+    updateTimeTargetsSummary();
+}
+
+function handleTargetInput() {
+    const raw = document.getElementById('target-time-input').value.trim();
+    const sec = timeToSeconds(raw);
+    const errEl = document.getElementById('target-time-error');
+
+    if (sec === null) {
+        errEl.classList.remove('hidden');
+        STATE.targetSeconds = 0;
+    } else {
+        errEl.classList.add('hidden');
+        STATE.targetSeconds = sec;
+    }
+
+    STATE.alertPlayed = false;
+    updateDisplays();
+    updateTimeTargetsSummary();
+}
+
+// === TIMER CONTROLS ===
+function getElapsedMs() {
+    if (!STATE.isRunning) return STATE.accumulatedMs;
+    return STATE.accumulatedMs + (Date.now() - STATE.startTime);
+}
+
+function updateDisplays() {
+    const elapsedSec = Math.floor(getElapsedMs() / 1000);
+    const remainingSec = (STATE.targetSeconds || 0) - elapsedSec;
+
+    const countdownEl = document.getElementById('countdown-display');
+    const stopwatchEl = document.getElementById('stopwatch-display');
+
+    countdownEl.textContent = secondsToTime(remainingSec);
+    countdownEl.classList.toggle('overdue', remainingSec < 0);
+    stopwatchEl.textContent = secondsToTime(elapsedSec);
+
+    if (STATE.isRunning && (STATE.mode === 'timer' || STATE.mode === 'both') && !STATE.alertPlayed) {
+        const alertMins = parseInt(document.getElementById('alert-minutes').value, 10);
+        const thresholdSec = alertMins * 60;
+        if (STATE.targetSeconds > thresholdSec && remainingSec === thresholdSec) {
+            STATE.alertPlayed = true;
+            playGenericBeepBeep();
+            const card = document.getElementById('countdown-stage-card');
+            card.classList.add('beep-active');
+            setTimeout(() => card.classList.remove('beep-active'), 2500);
+            showLogToast(`${alertMins} minutes left for ${getFileName()}!`, false);
+        }
+    }
+}
+
+function toggleStartPause() {
+    const startBtn = document.getElementById('btn-start-pause');
+    const completeBtn = document.getElementById('btn-complete-log');
+
+    if (!STATE.isRunning) {
+        if ((STATE.mode === 'timer' || STATE.mode === 'both') && STATE.targetSeconds <= 0) {
+            showLogToast('Please enter a valid Target Time (HH:MM:SS).', false);
+            return;
+        }
+        STATE.isRunning = true;
+        STATE.startTime = Date.now();
+        const remainingMs = Math.max(0, (STATE.targetSeconds * 1000) - STATE.accumulatedMs);
+        STATE.targetEndTimestamp = STATE.startTime + remainingMs;
+        updateTimeTargetsSummary();
+
+        STATE.intervalId = setInterval(() => {
+            updateDisplays();
+            updateTimeTargetsSummary();
+        }, 250);
+
+        startBtn.innerHTML = `<i data-lucide="pause" class="w-4 h-4"></i> Pause`;
+        startBtn.classList.add('is-running');
+        completeBtn.disabled = false;
+    } else {
+        STATE.accumulatedMs += Date.now() - STATE.startTime;
+        STATE.isRunning = false;
+        STATE.targetEndTimestamp = null;
+        clearInterval(STATE.intervalId);
+
+        startBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> Resume`;
+        startBtn.classList.remove('is-running');
+    }
+
+    lucide.createIcons();
+}
+
+function completeAndLog() {
+    const elapsedSec = Math.floor(getElapsedMs() / 1000);
+    if (elapsedSec <= 0) {
+        showLogToast('Start the timer before logging.', false);
+        return;
+    }
+
+    const hasTarget = STATE.mode === 'timer' || STATE.mode === 'both';
+    const onTime = hasTarget ? elapsedSec <= STATE.targetSeconds : null;
+
+    STATE.loggedFiles.unshift({
+        id: Date.now(),
+        fileName: getFileName(),
+        mode: STATE.mode,
+        targetSec: hasTarget ? STATE.targetSeconds : 0,
+        elapsedSec,
+        onTime,
+        completedAt: Date.now()
+    });
+
+    saveLogs();
+    populateFilterOptions();
+    updateDashboard();
+
+    if (typeof confetti === 'function') {
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.65 } });
+    }
+    playGenericBeepBeep();
+    showLogToast(`Logged "${getFileName()}" (${secondsToTime(elapsedSec)})!`, true);
+    resetTimer();
+}
+
+function resetTimer() {
+    clearInterval(STATE.intervalId);
+    STATE.isRunning = false;
+    STATE.startTime = null;
+    STATE.targetEndTimestamp = null;
+    STATE.accumulatedMs = 0;
+    STATE.alertPlayed = false;
+
+    const startBtn = document.getElementById('btn-start-pause');
+    const completeBtn = document.getElementById('btn-complete-log');
+
+    startBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> Start`;
+    startBtn.classList.remove('is-running');
+    completeBtn.disabled = true;
+
+    updateDisplays();
+    updateTimeTargetsSummary();
+    lucide.createIcons();
+}
+
+// === LOGS & FILTERING ===
+function saveLogs() {
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(STATE.loggedFiles));
+}
+
+function populateFilterOptions() {
+    const yearSelect = document.getElementById('filter-year');
+    const monthSelect = document.getElementById('filter-month');
+    if (!yearSelect || !monthSelect) return;
+
+    const currentYear = yearSelect.value || 'all';
+    const currentMonth = monthSelect.value || 'all';
+
+    const years = new Set();
+    const months = new Set();
+    const monthOrder = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    STATE.loggedFiles.forEach(item => {
+        if (!item.completedAt) return;
+        const d = new Date(item.completedAt);
+        years.add(String(d.getFullYear()));
+        months.add(d.toLocaleString('en-US', { month: 'long' }));
+    });
+
+    yearSelect.innerHTML = '<option value="all">All Years</option>' +
+        [...years].sort((a, b) => Number(b) - Number(a)).map(y => `<option value="${y}">${y}</option>`).join('');
+
+    monthSelect.innerHTML = '<option value="all">All Months</option>' +
+        [...months].sort((a, b) => monthOrder.indexOf(a) - monthOrder.indexOf(b)).map(m => `<option value="${m}">${m}</option>`).join('');
+
+    yearSelect.value = [...years].includes(currentYear) ? currentYear : 'all';
+    monthSelect.value = [...months].includes(currentMonth) ? currentMonth : 'all';
+}
+
+function getFilteredLogs() {
+    const query = (document.getElementById('filter-search')?.value || '').toLowerCase().trim();
+    const yearFilter = document.getElementById('filter-year')?.value || 'all';
+    const monthFilter = document.getElementById('filter-month')?.value || 'all';
+    const statusFilter = document.getElementById('filter-status')?.value || 'all';
+    const startDate = document.getElementById('date-range-start')?.value || '';
+    const endDate = document.getElementById('date-range-end')?.value || '';
+
+    const startTs = startDate ? new Date(startDate + 'T00:00:00').getTime() : null;
+    const endTs = endDate ? new Date(endDate + 'T23:59:59').getTime() : null;
+
+    return STATE.loggedFiles.filter(item => {
+        const d = new Date(item.completedAt);
+        const matchName = !query || item.fileName.toLowerCase().includes(query);
+        const matchYear = yearFilter === 'all' || String(d.getFullYear()) === yearFilter;
+        const matchMonth = monthFilter === 'all' || d.toLocaleString('en-US', { month: 'long' }) === monthFilter;
+
+        let matchStatus = true;
+        if (statusFilter === 'ontime') matchStatus = item.onTime === true;
+        if (statusFilter === 'overtime') matchStatus = item.onTime === false;
+        if (statusFilter === 'stopwatch') matchStatus = item.onTime === null;
+
+        let matchRange = true;
+        if (startTs !== null && item.completedAt < startTs) matchRange = false;
+        if (endTs !== null && item.completedAt > endTs) matchRange = false;
+
+        return matchName && matchYear && matchMonth && matchStatus && matchRange;
+    });
+}
+
+function clearFilters() {
+    document.getElementById('filter-year').value = 'all';
+    document.getElementById('filter-month').value = 'all';
+    document.getElementById('filter-status').value = 'all';
+    document.getElementById('date-range-start').value = '';
+    document.getElementById('date-range-end').value = '';
+    document.getElementById('filter-search').value = '';
+    updateDashboard();
+}
+
+function deleteLog(id) {
+    STATE.loggedFiles = STATE.loggedFiles.filter(item => item.id !== id);
+    saveLogs();
+    populateFilterOptions();
+    updateDashboard();
+    showLogToast('Log deleted.', false);
+}
+
+// === MANUAL / EDIT LOG MODAL ===
+function openManualLogModal(editId = null) {
+    STATE.editingLogId = editId;
+    const titleEl = document.getElementById('manual-modal-title');
+    const saveBtn = document.getElementById('manual-modal-save-btn');
+
+    if (editId !== null) {
+        const item = STATE.loggedFiles.find(l => l.id === editId);
+        if (!item) return;
+        titleEl.textContent = 'Edit Output Log';
+        saveBtn.textContent = 'Save Changes';
+        document.getElementById('manual-file-name').value = item.fileName;
+        document.getElementById('manual-mode').value = item.mode;
+        document.getElementById('manual-log-date').value = new Date(item.completedAt).toISOString().split('T')[0];
+        document.getElementById('manual-target-time').value = item.targetSec > 0 ? secondsToTime(item.targetSec) : '00:30:00';
+        document.getElementById('manual-elapsed-time').value = secondsToTime(item.elapsedSec);
+    } else {
+        titleEl.textContent = 'Manual Output Log';
+        saveBtn.textContent = 'Save Log';
+        document.getElementById('manual-file-name').value = '';
+        document.getElementById('manual-mode').value = 'timer';
+        document.getElementById('manual-log-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('manual-target-time').value = '00:30:00';
+        document.getElementById('manual-elapsed-time').value = '00:25:00';
+    }
+
+    document.getElementById('manual-log-modal').classList.add('open');
+}
+
+function closeManualModal() {
+    STATE.editingLogId = null;
+    document.getElementById('manual-log-modal').classList.remove('open');
+}
+
+function saveManualLog() {
+    const fileName = document.getElementById('manual-file-name').value.trim() || 'File 1';
+    const mode = document.getElementById('manual-mode').value;
+    const dateVal = document.getElementById('manual-log-date').value;
+    const targetSec = timeToSeconds(document.getElementById('manual-target-time').value.trim());
+    const elapsedSec = timeToSeconds(document.getElementById('manual-elapsed-time').value.trim());
+
+    if (elapsedSec === null || elapsedSec <= 0) {
+        showLogToast('Please enter a valid Time Taken (HH:MM:SS).', false);
+        return;
+    }
+
+    const completedAt = dateVal ? new Date(dateVal + 'T12:00:00').getTime() : Date.now();
+    const hasTarget = (mode === 'timer' || mode === 'both') && targetSec > 0;
+
+    if (STATE.editingLogId !== null) {
+        const idx = STATE.loggedFiles.findIndex(l => l.id === STATE.editingLogId);
+        if (idx !== -1) {
+            STATE.loggedFiles[idx] = {
+                ...STATE.loggedFiles[idx],
+                fileName,
+                mode,
+                targetSec: hasTarget ? targetSec : 0,
+                elapsedSec,
+                onTime: hasTarget ? elapsedSec <= targetSec : null,
+                completedAt
+            };
+        }
+        showLogToast('Log updated!', true);
+    } else {
+        STATE.loggedFiles.unshift({
+            id: Date.now(),
+            fileName,
+            mode,
+            targetSec: hasTarget ? targetSec : 0,
+            elapsedSec,
+            onTime: hasTarget ? elapsedSec <= targetSec : null,
+            completedAt
+        });
+        showLogToast('Manual log saved!', true);
+    }
+
+    STATE.loggedFiles.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+    saveLogs();
+    populateFilterOptions();
+    updateDashboard();
+    closeManualModal();
+}
+
+// === DASHBOARD (STATS, HEATMAP, CHART, & MERGED FILES TABLE) ===
+function renderHeatmap(logs) {
+    const container = document.getElementById('workflow-heatmap-months');
+    if (!container) return;
+
+    const dayCounts = {};
+    logs.forEach(l => {
+        const d = new Date(l.completedAt);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        dayCounts[key] = (dayCounts[key] || 0) + 1;
+    });
+
+    const today = new Date();
+    const weekLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    let html = '';
+
+    for (let offset = -2; offset <= 0; offset++) {
+        const monthDate = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+        const year = monthDate.getFullYear();
+        const month = monthDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        let cells = weekLabels.map(w => `<div class="workflow-heatmap-day-label">${w}</div>`).join('');
+        for (let p = 0; p < firstDay; p++) cells += `<div></div>`;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const count = dayCounts[key] || 0;
+            const level = count === 0 ? 0 : count === 1 ? 1 : count <= 3 ? 2 : 3;
+            const isToday = (year === today.getFullYear() && month === today.getMonth() && d === today.getDate());
+            cells += `<div class="workflow-heatmap-cell level-${level} ${isToday ? 'is-today' : ''}" data-day-key="${key}" data-count="${count}">${d}</div>`;
+        }
+
+        html += `
+            <div class="space-y-2">
+                <div class="text-xs font-black uppercase text-center text-indigo-700">${monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+                <div class="workflow-heatmap-grid">${cells}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+    bindHeatmapTooltip();
+}
+
+function bindHeatmapTooltip() {
+    const container = document.getElementById('workflow-heatmap-months');
+    const tooltip = document.getElementById('workflow-heatmap-tooltip');
+    if (!container || !tooltip || container.dataset.tooltipBound === 'true') return;
+    container.dataset.tooltipBound = 'true';
+
+    const positionTooltip = (e) => {
+        const pad = 14;
+        const x = e.clientX + 16;
+        const y = e.clientY + 16;
+        const maxX = window.innerWidth - tooltip.offsetWidth - pad;
+        const maxY = window.innerHeight - tooltip.offsetHeight - pad;
+        tooltip.style.left = `${Math.max(pad, Math.min(x, maxX))}px`;
+        tooltip.style.top = `${Math.max(pad, Math.min(y, maxY))}px`;
+    };
+
+    container.addEventListener('mouseover', (e) => {
+        const cell = e.target.closest('.workflow-heatmap-cell[data-day-key]');
+        if (!cell) return;
+        const [y, m, d] = cell.dataset.dayKey.split('-').map(Number);
+        const count = Number(cell.dataset.count || 0);
+        const prettyDate = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+            month: 'long', day: 'numeric', year: 'numeric'
+        });
+
+        tooltip.innerHTML = `
+            <div class="text-xs font-black">${prettyDate}</div>
+            <div class="text-[11px] font-bold text-indigo-500 mt-0.5">${count} output${count === 1 ? '' : 's'} logged</div>
+        `;
+        tooltip.classList.add('visible');
+        positionTooltip(e);
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (tooltip.classList.contains('visible')) positionTooltip(e);
+    });
+
+    container.addEventListener('mouseout', (e) => {
+        const fromCell = e.target.closest('.workflow-heatmap-cell[data-day-key]');
+        const toCell = e.relatedTarget?.closest?.('.workflow-heatmap-cell[data-day-key]');
+        if (fromCell && fromCell !== toCell) tooltip.classList.remove('visible');
+    });
+}
+
+function updateDashboard() {
+    const filteredLogs = getFilteredLogs();
+    const isDark = document.body.classList.contains('dark-mode');
+    const totalSec = filteredLogs.reduce((sum, l) => sum + l.elapsedSec, 0);
+    const totalHours = totalSec / 3600;
+    const timed = filteredLogs.filter(l => l.onTime !== null);
+    const onTimeCount = timed.filter(l => l.onTime === true).length;
+    const workedDaysSet = new Set(filteredLogs.map(l => new Date(l.completedAt).toDateString()));
+    const workedDaysCount = workedDaysSet.size;
+
+    // Update Stat Cards
+    document.getElementById('stat-total-files').textContent = filteredLogs.length;
+    document.getElementById('stat-total-hours').textContent = totalHours.toFixed(2);
+    document.getElementById('stat-ontime-rate').textContent = timed.length
+        ? `${Math.round((onTimeCount / timed.length) * 100)}%`
+        : 'N/A';
+    document.getElementById('stat-daily-avg').textContent = `${(workedDaysCount ? totalHours / workedDaysCount : 0).toFixed(2)} hrs`;
+
+    // Update Table Footer Summary
+    document.getElementById('total-worked-days').textContent = workedDaysCount;
+    document.getElementById('total-files-footer').textContent = filteredLogs.length;
+    document.getElementById('total-active-hours').textContent = totalHours.toFixed(2);
+
+    const matchCountEl = document.getElementById('filter-match-count');
+    if (matchCountEl) {
+        matchCountEl.textContent = filteredLogs.length === STATE.loggedFiles.length
+            ? `Showing all ${STATE.loggedFiles.length} files`
+            : `Matched ${filteredLogs.length} of ${STATE.loggedFiles.length} files`;
+    }
+
+    renderHeatmap(filteredLogs);
+
+    // Chart.js Trend Bar Chart
+    const canvas = document.getElementById('outputTrendChart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (STATE.chart) STATE.chart.destroy();
+
+        const labelColor = isDark ? '#cbd5e1' : '#334155';
+        const gridColor = isDark ? 'rgba(148, 163, 184, 0.2)' : 'rgba(148, 163, 184, 0.25)';
+        const recent = filteredLogs.slice(0, 15).reverse();
+
+        STATE.chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: recent.map(r => r.fileName),
+                datasets: [
+                    {
+                        label: 'Time Taken (mins)',
+                        data: recent.map(r => +(r.elapsedSec / 60).toFixed(2)),
+                        backgroundColor: '#4f46e5',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Target Time (mins)',
+                        data: recent.map(r => +(r.targetSec / 60).toFixed(2)),
+                        backgroundColor: '#38bdf8',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: labelColor, font: { weight: 'bold' } } }
+                },
+                scales: {
+                    x: { ticks: { color: labelColor }, grid: { color: gridColor } },
+                    y: { beginAtZero: true, ticks: { color: labelColor }, grid: { color: gridColor } }
+                }
+            }
+        });
+    }
+
+    // Output Performance Breakdown Table
+    const tbody = document.getElementById('dashboard-table-body');
+    if (!tbody) return;
+
+    if (filteredLogs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-5 px-4 text-center text-gray-500">No outputs found matching your current filter.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filteredLogs.map(item => {
+        const dateStr = new Date(item.completedAt).toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        const statusHtml = item.onTime === null
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-700 uppercase">Stopwatch</span>`
+            : item.onTime
+                ? `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-700 uppercase">On Time</span>`
+                : `<span class="px-2 py-0.5 rounded text-[10px] font-black bg-red-100 text-red-700 uppercase">Overtime</span>`;
+
+        return `
+            <tr class="transition-colors">
+                <td class="py-2.5 px-4 font-bold">${escapeHtmlText(item.fileName)}</td>
+                <td class="py-2.5 px-4 uppercase font-semibold">${item.mode}</td>
+                <td class="py-2.5 px-4 font-mono">${item.targetSec > 0 ? secondsToTime(item.targetSec) : 'N/A'}</td>
+                <td class="py-2.5 px-4 font-mono font-bold text-indigo-600">${secondsToTime(item.elapsedSec)}</td>
+                <td class="py-2.5 px-4">${statusHtml}</td>
+                <td class="py-2.5 px-4">${dateStr}</td>
+                <td class="py-2.5 px-4 text-right whitespace-nowrap">
+                    <button type="button" onclick="openManualLogModal(${item.id})" class="p-1.5 rounded-lg text-blue-600 hover:bg-blue-100 transition mr-1" title="Edit Log">
+                        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button type="button" onclick="deleteLog(${item.id})" class="p-1.5 rounded-lg text-red-600 hover:bg-red-100 transition" title="Delete Log">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    lucide.createIcons();
+}
+
+// === GENERATE PDF SUMMARY REPORT ===
+function generatePdfSummary() {
+    const logs = getFilteredLogs();
+    if (!logs.length) {
+        showLogToast('No outputs found for the current filter!', false);
+        return;
+    }
+
+    const totalSec = logs.reduce((sum, l) => sum + l.elapsedSec, 0);
+    const totalHours = (totalSec / 3600).toFixed(2);
+    const totalTimeFormatted = secondsToTime(totalSec);
+    const timed = logs.filter(l => l.onTime !== null);
+    const onTimeCount = timed.filter(l => l.onTime === true).length;
+    const onTimeRate = timed.length ? `${Math.round((onTimeCount / timed.length) * 100)}%` : 'N/A';
+
+    const userName = (document.getElementById('user-name-input').value.trim()) || 'Professional';
+    const generatedDate = new Date().toLocaleDateString('en-US', { dateStyle: 'long' });
+
+    const startDate = document.getElementById('date-range-start').value;
+    const endDate = document.getElementById('date-range-end').value;
+    let rangeLabel = 'All Recorded Dates';
+    if (startDate && endDate) {
+        rangeLabel = `${startDate} to ${endDate}`;
+    } else if (logs.length > 0) {
+        const timestamps = logs.map(l => l.completedAt);
+        const minStr = new Date(Math.min(...timestamps)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const maxStr = new Date(Math.max(...timestamps)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        rangeLabel = minStr === maxStr ? minStr : `${minStr} — ${maxStr}`;
+    }
+
+    const reportHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Workflow Timer Summary Report</title>
+        <style>
+            body { font-family: 'Inter', Arial, sans-serif; padding: 30px; color: #1e293b; font-size: 11px; }
+            h1 { text-align: center; font-size: 24px; font-weight: 900; margin-bottom: 6px; letter-spacing: -0.02em; }
+            .divider { border-top: 2px solid #1e293b; margin: 10px 0 16px; }
+            .meta { display: flex; justify-content: space-between; font-weight: 700; text-transform: uppercase; font-size: 10px; color: #475569; margin-bottom: 18px; }
+            .metrics { display: flex; justify-content: space-between; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 0; margin-bottom: 22px; background: #f8fafc; }
+            .metric-col { flex: 1; text-align: center; border-right: 1px solid #e2e8f0; }
+            .metric-col:last-child { border-right: none; }
+            .metric-lbl { font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; }
+            .metric-val { font-size: 18px; font-weight: 900; color: #1e3a8a; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th { background: #f1f5f9; padding: 8px; border: 1px solid #cbd5e1; text-transform: uppercase; font-size: 9px; font-weight: 900; text-align: left; }
+            td { padding: 7px 8px; border: 1px solid #e2e8f0; font-size: 10px; }
+            .pass { color: #059669; font-weight: 800; }
+            .fail { color: #dc2626; font-weight: 800; }
+            .neutral { color: #475569; font-weight: 700; }
+            .footer { margin-top: 24px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+            @media print { @page { size: landscape; margin: 1cm; } }
+        </style>
+    </head>
+    <body>
+        <h1>⏱ Workflow Timer — Outputs Summary</h1>
+        <div class="divider"></div>
+        <div class="meta">
+            <div>Name: <span style="color:#0f172a;">${escapeHtmlText(userName)}</span><br>Range: <span style="color:#0f172a;">${rangeLabel}</span></div>
+            <div style="text-align:right;">Generated: <span style="color:#0f172a;">${generatedDate}</span><br>Total Outputs: <span style="color:#0f172a;">${logs.length}</span></div>
+        </div>
+        <div class="metrics">
+            <div class="metric-col"><div class="metric-lbl">Total Files</div><div class="metric-val">${logs.length}</div></div>
+            <div class="metric-col"><div class="metric-lbl">Total Time Logged</div><div class="metric-val">${totalTimeFormatted}</div></div>
+            <div class="metric-col"><div class="metric-lbl">Total Active Hours</div><div class="metric-val">${totalHours} hrs</div></div>
+            <div class="metric-col"><div class="metric-lbl">On-Time Rate</div><div class="metric-val">${onTimeRate}</div></div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:34%;">File Name</th>
+                    <th style="width:12%;">Mode</th>
+                    <th style="width:13%;">Target Time</th>
+                    <th style="width:13%;">Time Taken</th>
+                    <th style="width:12%;">Status</th>
+                    <th style="width:16%;">Completed At</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${logs.map(l => {
+                    const statusCls = l.onTime === null ? 'neutral' : (l.onTime ? 'pass' : 'fail');
+                    const statusTxt = l.onTime === null ? 'STOPWATCH' : (l.onTime ? 'ON TIME' : 'OVERTIME');
+                    const dt = new Date(l.completedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    return `
+                        <tr>
+                            <td><strong>${escapeHtmlText(l.fileName)}</strong></td>
+                            <td>${l.mode.toUpperCase()}</td>
+                            <td>${l.targetSec > 0 ? secondsToTime(l.targetSec) : 'N/A'}</td>
+                            <td><strong>${secondsToTime(l.elapsedSec)}</strong></td>
+                            <td class="${statusCls}">${statusTxt}</td>
+                            <td>${dt}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+        <div class="footer">Generated via Workflow Timer • Personal Productivity &amp; Output Tracker</div>
+        <script>window.onload = function() { window.print(); };<\/script>
+    </body>
+    </html>`;
+
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+        printWin.document.write(reportHtml);
+        printWin.document.close();
+    } else {
+        showLogToast('Pop-up blocked! Please allow pop-ups to generate the PDF summary.', false);
+    }
+}
+
+// === ORIGINAL FOLDER-BASED NOTEBOOK SYSTEM ===
+const DEFAULT_NOTEBOOK_ID = 'notebook-quick-notes';
+const EMPTY_DELTA_JSON = JSON.stringify({ ops: [{ insert: '\n' }] });
+const NOTEBOOK_STATE = { notebooks: [], activeId: null };
+const NOTES_STATE = { history: [EMPTY_DELTA_JSON], historyIndex: 0, isTyping: false, maxHistory: 50 };
+let quill;
+
+function normalizeDeltaJsonString(value) {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.ops)) {
+            return JSON.stringify(parsed);
+        }
+    } catch {}
+    return EMPTY_DELTA_JSON;
+}
+
+function persistNotebookState() {
+    localStorage.setItem(STORAGE_KEYS.NOTEBOOKS, JSON.stringify(NOTEBOOK_STATE.notebooks));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_NOTEBOOK, NOTEBOOK_STATE.activeId || '');
+}
+
+function loadNotebookState() {
+    let parsed = [];
+    try {
+        parsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTEBOOKS) || '[]');
+    } catch {
+        parsed = [];
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+        parsed = [{
+            id: DEFAULT_NOTEBOOK_ID,
+            name: 'QUICK NOTES',
+            content: EMPTY_DELTA_JSON
+        }];
+    } else {
+        parsed = parsed.map((n, idx) => ({
+            id: n?.id ? String(n.id) : `notebook-${Date.now()}-${idx}`,
+            name: (n?.name ? String(n.name) : `NOTE ${idx + 1}`).trim().slice(0, 30) || `NOTE ${idx + 1}`,
+            content: normalizeDeltaJsonString(n?.content)
+        }));
+    }
+
+    if (!parsed.some(n => n.id === DEFAULT_NOTEBOOK_ID)) {
+        parsed.unshift({ id: DEFAULT_NOTEBOOK_ID, name: 'QUICK NOTES', content: EMPTY_DELTA_JSON });
+    }
+
+    NOTEBOOK_STATE.notebooks = parsed;
+    const savedActive = localStorage.getItem(STORAGE_KEYS.ACTIVE_NOTEBOOK);
+    NOTEBOOK_STATE.activeId = parsed.some(n => n.id === savedActive) ? savedActive : DEFAULT_NOTEBOOK_ID;
+    persistNotebookState();
+}
+
+function getActiveNotebook() {
+    return NOTEBOOK_STATE.notebooks.find(n => n.id === NOTEBOOK_STATE.activeId) || null;
+}
+
+function saveActiveNotebookContent(contentJson) {
+    const notebook = getActiveNotebook();
+    if (!notebook) return;
+    notebook.content = normalizeDeltaJsonString(contentJson);
+    persistNotebookState();
+}
+
+function renderNotebookList() {
+    const listEl = document.getElementById('fd-notebook-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = NOTEBOOK_STATE.notebooks.map(notebook => {
+        const isActive = notebook.id === NOTEBOOK_STATE.activeId;
+        return `
+            <div class="fd-notebook-item ${isActive ? 'is-active' : ''}">
+                <button type="button" class="fd-notebook-select flex-1 text-left min-w-0" data-action="switch" data-id="${notebook.id}">
+                    <i data-lucide="folder" class="w-3.5 h-3.5 flex-shrink-0"></i>
+                    <span class="fd-notebook-name">${escapeHtmlText(notebook.name)}</span>
+                </button>
+                <div class="fd-notebook-actions">
+                    <button type="button" class="fd-notebook-action-btn" data-action="up" data-id="${notebook.id}" title="Move up">
+                        <i data-lucide="chevron-up" class="w-3 h-3"></i>
+                    </button>
+                    <button type="button" class="fd-notebook-action-btn" data-action="down" data-id="${notebook.id}" title="Move down">
+                        <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                    </button>
+                    <button type="button" class="fd-notebook-action-btn" data-action="delete" data-id="${notebook.id}" title="Delete">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    lucide.createIcons();
+}
+
+function updateNotesButtons() {
+    document.getElementById('undoBtn').disabled = NOTES_STATE.historyIndex === 0;
+    document.getElementById('redoBtn').disabled = NOTES_STATE.historyIndex === NOTES_STATE.history.length - 1;
+}
+
+function saveNotesState() {
+    if (!quill) return;
+    const currentJson = JSON.stringify(quill.getContents());
+    if (currentJson === NOTES_STATE.history[NOTES_STATE.historyIndex]) return;
+
+    if (NOTES_STATE.historyIndex < NOTES_STATE.history.length - 1) {
+        NOTES_STATE.history = NOTES_STATE.history.slice(0, NOTES_STATE.historyIndex + 1);
+    }
+
+    NOTES_STATE.history.push(currentJson);
+    NOTES_STATE.historyIndex = NOTES_STATE.history.length - 1;
+
+    if (NOTES_STATE.history.length > NOTES_STATE.maxHistory) {
+        NOTES_STATE.history.shift();
+        NOTES_STATE.historyIndex--;
+    }
+
+    saveActiveNotebookContent(currentJson);
+    updateNotesButtons();
+}
+
+function setNotebookEditorState(notebook) {
+    if (!notebook || !quill) return;
+    const contentJson = normalizeDeltaJsonString(notebook.content);
+    notebook.content = contentJson;
+    quill.setContents(JSON.parse(contentJson));
+    NOTES_STATE.history = [contentJson];
+    NOTES_STATE.historyIndex = 0;
+    updateNotesButtons();
+    document.getElementById('active-notebook-name').value = notebook.name;
+}
+
+function switchNotebook(id) {
+    if (!id || NOTEBOOK_STATE.activeId === id) return;
+    if (quill) saveActiveNotebookContent(JSON.stringify(quill.getContents()));
+    NOTEBOOK_STATE.activeId = id;
+    persistNotebookState();
+    setNotebookEditorState(getActiveNotebook());
+    renderNotebookList();
+}
+
+function addNotebook() {
+    if (quill) saveActiveNotebookContent(JSON.stringify(quill.getContents()));
+    const newNotebook = {
+        id: `notebook-${Date.now()}`,
+        name: `NOTE ${NOTEBOOK_STATE.notebooks.length + 1}`,
+        content: EMPTY_DELTA_JSON
+    };
+    NOTEBOOK_STATE.notebooks.push(newNotebook);
+    NOTEBOOK_STATE.activeId = newNotebook.id;
+    persistNotebookState();
+    setNotebookEditorState(newNotebook);
+    renderNotebookList();
+}
+
+function renameActiveNotebook(newName) {
+    const target = getActiveNotebook();
+    if (!target) return;
+    const safe = String(newName || '').trim().slice(0, 30);
+    if (!safe) {
+        document.getElementById('active-notebook-name').value = target.name;
+        return;
+    }
+    target.name = safe;
+    persistNotebookState();
+    renderNotebookList();
+}
+
+function moveNotebook(id, direction) {
+    const idx = NOTEBOOK_STATE.notebooks.findIndex(n => n.id === id);
+    if (idx < 0) return;
+    const nextIdx = idx + direction;
+    if (nextIdx < 0 || nextIdx >= NOTEBOOK_STATE.notebooks.length) return;
+    [NOTEBOOK_STATE.notebooks[idx], NOTEBOOK_STATE.notebooks[nextIdx]] = [NOTEBOOK_STATE.notebooks[nextIdx], NOTEBOOK_STATE.notebooks[idx]];
+    persistNotebookState();
+    renderNotebookList();
+}
+
+function deleteNotebook(id) {
+    if (id === DEFAULT_NOTEBOOK_ID) {
+        showLogToast('QUICK NOTES cannot be deleted.', false);
+        return;
+    }
+    if (NOTEBOOK_STATE.notebooks.length <= 1) {
+        showLogToast('At least one note folder is required.', false);
+        return;
+    }
+    if (!confirm('Delete this note folder and its content?')) return;
+
+    NOTEBOOK_STATE.notebooks = NOTEBOOK_STATE.notebooks.filter(n => n.id !== id);
+    if (!NOTEBOOK_STATE.notebooks.some(n => n.id === NOTEBOOK_STATE.activeId)) {
+        NOTEBOOK_STATE.activeId = DEFAULT_NOTEBOOK_ID;
+    }
+    persistNotebookState();
+    setNotebookEditorState(getActiveNotebook());
+    renderNotebookList();
+}
+
+function initNotes() {
+    quill = new Quill('#notesArea', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                [{ header: [1, 2, false] }],
+                [{ size: ['small', false, 'large', 'huge'] }],
+                ['bold', 'italic', 'underline'],
+                [{ color: [] }, { background: [] }],
+                [{ align: [] }],
+                ['image', 'link'],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                ['clean']
+            ]
+        },
+        placeholder: 'Start typing or paste images...'
+    });
+
+    loadNotebookState();
+    renderNotebookList();
+    setNotebookEditorState(getActiveNotebook());
+
+    quill.on('text-change', (delta, oldDelta, source) => {
+        if (source === 'user' && !NOTES_STATE.isTyping) {
+            NOTES_STATE.isTyping = true;
+            setTimeout(() => {
+                saveNotesState();
+                NOTES_STATE.isTyping = false;
+            }, 400);
+        }
+    });
+
+    document.getElementById('fd-notebook-list').addEventListener('click', (e) => {
+        const trigger = e.target.closest('[data-action][data-id]');
+        if (!trigger) return;
+        const { action, id } = trigger.dataset;
+        if (action === 'switch') switchNotebook(id);
+        if (action === 'up') moveNotebook(id, -1);
+        if (action === 'down') moveNotebook(id, 1);
+        if (action === 'delete') deleteNotebook(id);
+    });
+
+    document.getElementById('add-notebook-btn').addEventListener('click', addNotebook);
+
+    const activeNameInput = document.getElementById('active-notebook-name');
+    activeNameInput.addEventListener('change', (e) => renameActiveNotebook(e.target.value));
+    activeNameInput.addEventListener('blur', (e) => renameActiveNotebook(e.target.value));
+
+    document.getElementById('undoBtn').addEventListener('click', () => {
+        if (NOTES_STATE.historyIndex > 0) {
+            NOTES_STATE.historyIndex--;
+            quill.setContents(JSON.parse(NOTES_STATE.history[NOTES_STATE.historyIndex]));
+            saveActiveNotebookContent(NOTES_STATE.history[NOTES_STATE.historyIndex]);
+            updateNotesButtons();
+        }
+    });
+
+    document.getElementById('redoBtn').addEventListener('click', () => {
+        if (NOTES_STATE.historyIndex < NOTES_STATE.history.length - 1) {
+            NOTES_STATE.historyIndex++;
+            quill.setContents(JSON.parse(NOTES_STATE.history[NOTES_STATE.historyIndex]));
+            saveActiveNotebookContent(NOTES_STATE.history[NOTES_STATE.historyIndex]);
+            updateNotesButtons();
+        }
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        if (quill.getLength() > 1) {
+            quill.setContents([]);
+            saveNotesState();
+            showLogToast('Notepad cleared.', false);
+        } else {
+            showLogToast('Already empty.', false);
+        }
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', () => {
+        const text = quill.getText().trim();
+        if (text) {
+            navigator.clipboard.writeText(text);
+            showLogToast('Plain text copied!', true);
+        } else {
+            showLogToast('Nothing to copy!', false);
+        }
+    });
+}
+
+// === ORIGINAL CUSTOM LINKS PILL SYSTEM (PRE-POPULATED LINKS REMOVED) ===
+const workIcons = [
+    'link', 'file-text', 'folder', 'briefcase', 'archive', 'clipboard-list', 'globe', 'database', 'cpu', 'cloud',
+    'hard-drive', 'mail', 'message-square', 'settings', 'wrench', 'zap', 'shield', 'lock', 'user', 'users',
+    'monitor', 'coffee', 'calendar', 'headphones', 'search', 'alarm-clock', 'book-marked', 'leaf', 'notepad-text', 'layers'
+];
+
+const workColors = [
+    '#0891b2', '#4338ca', '#059669', '#d97706', '#dc2626',
+    '#be185d', '#7e22ce', '#4b5563', '#1e293b', '#0ea5e9',
+    '#6366f1', '#ec4899', '#f97316', '#14b8a6', '#8b5cf6',
+    '#22c55e', '#f43f5e', '#1e40af', '#166534', '#991b1b'
+];
+
+let selectedIcon = 'link';
+let selectedColor = '#0891b2';
+let editingLinkIndex = null;
+let userLinks = JSON.parse(localStorage.getItem(STORAGE_KEYS.LINKS) || '[]');
+
+function toggleLinkModal(show) {
+    const modal = document.getElementById('link-modal');
+    const titleHeader = document.getElementById('link-modal-title');
+    modal.classList.toggle('hidden', !show);
+    modal.classList.toggle('flex', show);
+
+    if (show) {
+        titleHeader.textContent = editingLinkIndex !== null ? 'EDIT LINK' : 'ADD A LINK';
+        setupLinkPickers();
+    } else {
+        editingLinkIndex = null;
+        document.getElementById('link-title').value = '';
+        document.getElementById('link-url').value = '';
+        selectedIcon = 'link';
+        selectedColor = '#0891b2';
+    }
+}
+
+function setupLinkPickers() {
+    const iconContainer = document.getElementById('icon-picker');
+    const colorContainer = document.getElementById('color-picker');
+    if (!iconContainer || !colorContainer) return;
+
+    iconContainer.innerHTML = workIcons.map(icon => `
+        <button type="button" onclick="selectedIcon='${icon}'; setupLinkPickers()"
+            class="p-2 border rounded-lg flex justify-center transition-all ${selectedIcon === icon ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-transparent opacity-50 hover:opacity-100'}">
+            <i data-lucide="${icon}" class="w-3.5 h-3.5 ${selectedIcon === icon ? 'text-indigo-600' : 'text-gray-600'}"></i>
+        </button>
+    `).join('');
+
+    colorContainer.innerHTML = workColors.map(color => `
+        <button type="button" onclick="selectedColor='${color}'; setupLinkPickers()"
+            class="w-6 h-6 rounded-full border-2 transition-all hover:scale-110 shadow-sm ${selectedColor === color ? 'border-slate-900 ring-2 ring-indigo-300 ring-offset-1' : 'border-white'}"
+            style="background:${color}"></button>
+    `).join('');
+
+    lucide.createIcons();
+}
+
+function saveLink() {
+    const title = document.getElementById('link-title').value.trim();
+    const url = document.getElementById('link-url').value.trim();
+
+    if (!title || !url) {
+        showLogToast('Please fill in both Title and URL.', false);
+        return;
+    }
+
+    const newLink = { title, url, icon: selectedIcon, color: selectedColor };
+
+    if (editingLinkIndex !== null) {
+        userLinks[editingLinkIndex] = newLink;
+    } else {
+        userLinks.push(newLink);
+    }
+
+    localStorage.setItem(STORAGE_KEYS.LINKS, JSON.stringify(userLinks));
+    const wasEditing = editingLinkIndex !== null;
+    toggleLinkModal(false);
+    renderUserLinks();
+    showLogToast(wasEditing ? 'Link updated!' : 'Link added!', true);
+}
+
+function editUserLink(index, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    editingLinkIndex = index;
+    const link = userLinks[index];
+    document.getElementById('link-title').value = link.title;
+    document.getElementById('link-url').value = link.url;
+    selectedIcon = link.icon || 'link';
+    selectedColor = link.color || '#0891b2';
+    toggleLinkModal(true);
+}
+
+function deleteUserLink(index, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    userLinks.splice(index, 1);
+    localStorage.setItem(STORAGE_KEYS.LINKS, JSON.stringify(userLinks));
+    renderUserLinks();
+    showLogToast('Link deleted.', false);
+}
+
+function renderUserLinks() {
+    const container = document.getElementById('links-grid');
+    if (!container) return;
+
+    if (userLinks.length === 0) {
+        container.innerHTML = `<div class="col-span-full py-6 text-center text-gray-400 font-bold uppercase text-xs tracking-widest border border-dashed border-gray-200 rounded-xl">No links saved yet. Click "+ Add New Link" above to add your own.</div>`;
+        return;
+    }
+
+    container.innerHTML = userLinks.map((link, i) => `
+        <a href="${escapeHtmlText(link.url)}" target="_blank" rel="noopener noreferrer" class="link-pill" style="background: ${link.color} !important;">
+            <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center mr-3">
+                <i data-lucide="${escapeHtmlText(link.icon || 'link')}" class="w-4 h-4 text-white"></i>
+            </div>
+            <span class="truncate pr-14">${escapeHtmlText(link.title)}</span>
+            <button type="button" onclick="editUserLink(${i}, event)" class="edit-link p-1.5 bg-black/15 rounded-md hover:bg-white/25 transition-colors" title="Edit">
+                <i data-lucide="pencil" class="w-3 h-3 text-white"></i>
+            </button>
+            <button type="button" onclick="deleteUserLink(${i}, event)" class="delete-link p-1.5 bg-black/15 rounded-md hover:bg-red-500 transition-colors" title="Delete">
+                <i data-lucide="trash-2" class="w-3 h-3 text-white"></i>
+            </button>
+        </a>
+    `).join('');
+
+    lucide.createIcons();
+}
+
+// === TABS, DARK MODE, COMPACT & FOCUS CONTROLS ===
+window.openTab = function(evt, tabName) {
+    if (document.body.classList.contains('force-critical-mode') && tabName !== 'tab-workflow') return;
+
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('active'));
+
+    document.getElementById(tabName).classList.add('active');
+    if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+
+    if (tabName === 'tab-dashboard') updateDashboard();
+    lucide.createIcons();
+};
+
+function loadUiPrefs() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEYS.UI_PREFS)) || {}; } catch { return {}; }
+}
+
+function saveUiPrefs(prefs) {
+    localStorage.setItem(STORAGE_KEYS.UI_PREFS, JSON.stringify(prefs));
+}
+
+function renderDarkModeIcon(enabled) {
+    const holder = document.getElementById('dark-mode-icon');
+    if (!holder) return;
+    holder.innerHTML = `<i data-lucide="${enabled ? 'moon' : 'sun'}" class="w-3.5 h-3.5"></i>`;
+    lucide.createIcons();
+}
+
+function setDarkMode(enabled) {
+    document.body.classList.toggle('dark-mode', !!enabled);
+    renderDarkModeIcon(enabled);
+    updateDashboard();
+}
+
+function setCompactMode(enabled) {
+    document.body.classList.toggle('compact-mode', !!enabled);
+    const btn = document.getElementById('compact-mode-toggle');
+    if (btn) {
+        btn.classList.toggle('is-on', !!enabled);
+        btn.classList.toggle('is-off', !enabled);
+        btn.setAttribute('data-tip', enabled ? 'Compact On: tighter spacing' : 'Compact Off: regular spacing');
+    }
+}
+
+function setFocusMode(enabled) {
+    document.body.classList.toggle('force-critical-mode', !!enabled);
+    const btn = document.getElementById('critical-view-toggle');
+    if (btn) {
+        btn.classList.toggle('is-on', !!enabled);
+        btn.classList.toggle('is-off', !enabled);
+        btn.setAttribute('data-tip', enabled ? 'Focus On: workflow panels only' : 'Focus Off: full interface');
+    }
+}
+
+// === CSV & BACKUP EXPORT/IMPORT ===
+function exportCSV() {
+    const logs = getFilteredLogs();
+    if (!logs.length) {
+        showLogToast('No logs to export.', false);
+        return;
+    }
+    const rows = logs.map(l => ({
+        'File Name': l.fileName,
+        'Mode': l.mode.toUpperCase(),
+        'Target Time': l.targetSec > 0 ? secondsToTime(l.targetSec) : 'N/A',
+        'Time Taken': secondsToTime(l.elapsedSec),
+        'Status': l.onTime === null ? 'STOPWATCH' : (l.onTime ? 'ON TIME' : 'OVERTIME'),
+        'Completed At': new Date(l.completedAt).toLocaleString()
+    }));
+
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Workflow_Timer_Logs_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+}
+
+function exportMasterBackup() {
+    const masterData = {
+        app: 'Workflow_Timer',
+        exportDate: new Date().toLocaleString(),
+        logs: STATE.loggedFiles,
+        customLinks: userLinks,
+        notebooks: NOTEBOOK_STATE.notebooks,
+        userName: localStorage.getItem(STORAGE_KEYS.USER_NAME) || ''
+    };
+    const blob = new Blob([JSON.stringify(masterData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Workflow_Timer_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    showLogToast('Backup exported!', true);
+}
+
+function exportBackup() {
+    exportMasterBackup();
+}
+
+function triggerMasterImport() {
+    document.getElementById('master-import-input').click();
+}
+
+function importMasterBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (Array.isArray(data.logs)) {
+                STATE.loggedFiles = data.logs;
+                saveLogs();
+            }
+            if (Array.isArray(data.customLinks)) {
+                userLinks = data.customLinks;
+                localStorage.setItem(STORAGE_KEYS.LINKS, JSON.stringify(userLinks));
+            }
+            if (Array.isArray(data.notebooks) && data.notebooks.length > 0) {
+                NOTEBOOK_STATE.notebooks = data.notebooks;
+                NOTEBOOK_STATE.activeId = data.notebooks[0].id;
+                persistNotebookState();
+                renderNotebookList();
+                setNotebookEditorState(getActiveNotebook());
+            }
+            if (typeof data.userName === 'string') {
+                localStorage.setItem(STORAGE_KEYS.USER_NAME, data.userName);
+                document.getElementById('user-name-input').value = data.userName;
+            }
+            populateFilterOptions();
+            updateDashboard();
+            renderUserLinks();
+            showLogToast('Backup restored successfully!', true);
+        } catch {
+            showLogToast('Invalid backup JSON file.', false);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+// === INITIALIZATION ===
+window.onload = () => {
+    // Load User Name
+    const nameInput = document.getElementById('user-name-input');
+    const savedName = localStorage.getItem(STORAGE_KEYS.USER_NAME);
+    if (savedName) nameInput.value = savedName;
+    nameInput.addEventListener('input', (e) => {
+        localStorage.setItem(STORAGE_KEYS.USER_NAME, e.target.value);
+    });
+
+    // Load Logs
+    try {
+        STATE.loggedFiles = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOGS) || '[]');
+    } catch {
+        STATE.loggedFiles = [];
+    }
+
+    // Load UI Preferences (Dark, Compact, Focus)
+    const prefs = loadUiPrefs();
+    setDarkMode(!!prefs.darkMode);
+    setCompactMode(!!prefs.compactMode);
+    setFocusMode(!!prefs.focusMode);
+
+    document.getElementById('dark-mode-toggle').addEventListener('click', () => {
+        const next = !document.body.classList.contains('dark-mode');
+        setDarkMode(next);
+        saveUiPrefs({ ...loadUiPrefs(), darkMode: next });
+    });
+
+    document.getElementById('compact-mode-toggle').addEventListener('click', () => {
+        const next = !document.body.classList.contains('compact-mode');
+        setCompactMode(next);
+        saveUiPrefs({ ...loadUiPrefs(), compactMode: next });
+    });
+
+    document.getElementById('critical-view-toggle').addEventListener('click', () => {
+        const next = !document.body.classList.contains('force-critical-mode');
+        setFocusMode(next);
+        saveUiPrefs({ ...loadUiPrefs(), focusMode: next });
+    });
+
+    // Clock & File Details Listeners
+    updateLiveClock();
+    setInterval(updateLiveClock, 1000);
+
+    document.getElementById('file-name').addEventListener('input', updateTimeTargetsSummary);
+    document.getElementById('timer-mode').addEventListener('change', applyModeVisibility);
+    document.getElementById('target-time-input').addEventListener('input', handleTargetInput);
+    document.getElementById('test-beep-btn').addEventListener('click', playGenericBeepBeep);
+
+    // Timer Action Buttons
+    document.getElementById('btn-start-pause').addEventListener('click', toggleStartPause);
+    document.getElementById('btn-complete-log').addEventListener('click', completeAndLog);
+    document.getElementById('btn-reset-timer').addEventListener('click', resetTimer);
+
+    // Merged Dashboard Table Controls
+    document.getElementById('generate-report-btn').addEventListener('click', generatePdfSummary);
+    document.getElementById('manual-log-btn').addEventListener('click', () => openManualLogModal(null));
+    document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
+    document.getElementById('export-logs-btn').addEventListener('click', exportMasterBackup);
+    document.getElementById('import-logs-btn').addEventListener('click', () => document.getElementById('log-import-input').click());
+    document.getElementById('log-import-input').addEventListener('change', importMasterBackup);
+    document.getElementById('clear-all-logs').addEventListener('click', () => {
+        if (!STATE.loggedFiles.length) return;
+        if (confirm('Clear all logged files?')) {
+            STATE.loggedFiles = [];
+            saveLogs();
+            populateFilterOptions();
+            updateDashboard();
+            showLogToast('All logs cleared.', false);
+        }
+    });
+
+    // Search & Date Filter Listeners
+    document.getElementById('filter-search').addEventListener('input', updateDashboard);
+    document.getElementById('filter-year').addEventListener('change', updateDashboard);
+    document.getElementById('filter-month').addEventListener('change', updateDashboard);
+    document.getElementById('filter-status').addEventListener('change', updateDashboard);
+    document.getElementById('date-range-start').addEventListener('change', updateDashboard);
+    document.getElementById('date-range-end').addEventListener('change', updateDashboard);
+    document.getElementById('clear-filter-btn').addEventListener('click', clearFilters);
+
+    // Init Subsystems
+    applyModeVisibility();
+    populateFilterOptions();
+    updateDashboard();
+    renderUserLinks();
+    initNotes();
+    lucide.createIcons();
+};
+</script>
+</body>
+</html>

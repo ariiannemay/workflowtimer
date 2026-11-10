@@ -6,6 +6,20 @@
 <meta name="theme-color" content="#1d4ed8">
 <title>Workflow Timer</title>
 
+<!-- Inline SVG Hourglass Favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231d4ed8'/%3E%3Cpath d='M18 14h28v4l-11 14 11 14v4H18v-4l11-14-11-14v-4z' fill='none' stroke='%23ffffff' stroke-width='4' stroke-linejoin='round'/%3E%3Cpath d='M23 18h18l-9 11-9-11zm9 17l9 11H23l9-11z' fill='%2393c5fd'/%3E%3C/svg%3E">
+
+<!-- Open Graph & Twitter Card Link Preview Meta Tags -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Workflow Timer — Output & Deliverable Productivity Tracker">
+<meta property="og:description" content="Track deliverable countdowns, elapsed active hours, on-time completion rates, interactive activity heatmaps, and rich-text notes in one workspace.">
+<meta property="og:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='630' viewBox='0 0 1200 630'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%230f172a'/%3E%3Cstop offset='100%25' stop-color='%231e3a8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='630' fill='url(%23bg)'/%3E%3Crect x='64' y='64' width='1072' height='502' rx='32' fill='%23111827' stroke='%233b82f6' stroke-width='3'/%3E%3Cg transform='translate(120, 185)'%3E%3Crect width='96' height='96' rx='24' fill='%232563eb'/%3E%3Cpath d='M28 22h40v6L53 48l15 20v6H28v-6l15-20-15-20v-6z' fill='none' stroke='%23ffffff' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M35 28h26L48 44 35 28zm13 24l13 16H35l13-16z' fill='%2393c5fd'/%3E%3C/g%3E%3Ctext x='244' y='230' fill='%23ffffff' font-family='Inter, system-ui, sans-serif' font-size='56' font-weight='900'%3EWorkflow Timer%3C/text%3E%3Ctext x='244' y='282' fill='%2393c5fd' font-family='Inter, system-ui, sans-serif' font-size='26' font-weight='700'%3EOutput-Based Deliverable &amp; Productivity Tracker%3C/text%3E%3Ctext x='120' y='370' fill='%23cbd5e1' font-family='Inter, system-ui, sans-serif' font-size='24'%3E%E2%80%A2 Countdown Timer &amp; Stopwatch Modes   %E2%80%A2 Interactive Activity Heatmap%3C/text%3E%3Ctext x='120' y='416' fill='%23cbd5e1' font-family='Inter, system-ui, sans-serif' font-size='24'%3E%E2%80%A2 PDF &amp; CSV Output Reports            %E2%80%A2 Folder-Based Rich-Text Notepad%3C/text%3E%3C/svg%3E">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Workflow Timer — Output & Deliverable Productivity Tracker">
+<meta name="twitter:description" content="Track deliverable countdowns, elapsed active hours, on-time completion rates, interactive activity heatmaps, and rich-text notes in one workspace.">
+<meta name="twitter:image" content="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='630' viewBox='0 0 1200 630'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%230f172a'/%3E%3Cstop offset='100%25' stop-color='%231e3a8a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='630' fill='url(%23bg)'/%3E%3Crect x='64' y='64' width='1072' height='502' rx='32' fill='%23111827' stroke='%233b82f6' stroke-width='3'/%3E%3Cg transform='translate(120, 185)'%3E%3Crect width='96' height='96' rx='24' fill='%232563eb'/%3E%3Cpath d='M28 22h40v6L53 48l15 20v6H28v-6l15-20-15-20v-6z' fill='none' stroke='%23ffffff' stroke-width='5' stroke-linejoin='round'/%3E%3Cpath d='M35 28h26L48 44 35 28zm13 24l13 16H35l13-16z' fill='%2393c5fd'/%3E%3C/g%3E%3Ctext x='244' y='230' fill='%23ffffff' font-family='Inter, system-ui, sans-serif' font-size='56' font-weight='900'%3EWorkflow Timer%3C/text%3E%3Ctext x='244' y='282' fill='%2393c5fd' font-family='Inter, system-ui, sans-serif' font-size='26' font-weight='700'%3EOutput-Based Deliverable &amp; Productivity Tracker%3C/text%3E%3Ctext x='120' y='370' fill='%23cbd5e1' font-family='Inter, system-ui, sans-serif' font-size='24'%3E%E2%80%A2 Countdown Timer &amp; Stopwatch Modes   %E2%80%A2 Interactive Activity Heatmap%3C/text%3E%3Ctext x='120' y='416' fill='%23cbd5e1' font-family='Inter, system-ui, sans-serif' font-size='24'%3E%E2%80%A2 PDF &amp; CSV Output Reports            %E2%80%A2 Folder-Based Rich-Text Notepad%3C/text%3E%3C/svg%3E">
+
 <!-- Libraries -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -682,7 +696,7 @@ input:checked + .pill-slider {
     opacity: 1;
 }
 
-/* === HEATMAP === */
+/* === HEATMAP & INTERACTIVE MONTH NAVIGATION === */
 .workflow-heatmap-months {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -757,6 +771,36 @@ input:checked + .pill-slider {
 .workflow-heatmap-tooltip.visible {
     opacity: 1;
     transform: translateY(0) scale(1);
+}
+
+.workflow-heatmap-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.workflow-heatmap-nav-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 9999px;
+    border: 1px solid #dbeafe;
+    background: #ffffff;
+    color: #2563eb;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.workflow-heatmap-nav-btn:hover:not(:disabled) {
+    background: #eff6ff;
+    transform: translateY(-1px);
+}
+
+.workflow-heatmap-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 /* === TOAST & MODALS === */
@@ -1045,6 +1089,16 @@ body.dark-mode .workflow-heatmap-tooltip {
     background: rgba(15, 23, 42, 0.96) !important;
     border-color: #334155 !important;
     color: #f8fafc !important;
+}
+
+body.dark-mode .workflow-heatmap-nav-btn {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #93c5fd !important;
+}
+
+body.dark-mode .workflow-heatmap-nav-btn:hover:not(:disabled) {
+    background: #1e293b !important;
 }
 
 /* Folder Notebook Dark Mode */
@@ -1392,12 +1446,12 @@ body.dark-mode #important-reminders-details > div {
                     </div>
                 </div>
 
-                <!-- 2. Collapsible Activity Heatmap (Last 3 Months) -->
+                <!-- 2. Collapsible Activity Heatmap (Interactive Month Navigation) -->
                 <details class="sub-collapse-details" open>
                     <summary class="sub-collapse-summary">
                         <div class="flex items-center gap-2">
                             <i data-lucide="calendar-range" class="w-5 h-5 text-blue-600"></i>
-                            <span class="text-sm font-black uppercase tracking-wider text-gray-800">Activity Heatmap (Last 3 Months)</span>
+                            <span id="workflow-heatmap-title" class="text-sm font-black uppercase tracking-wider text-gray-800">Activity Heatmap</span>
                         </div>
                         <div class="flex items-center gap-3 ml-auto">
                             <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
@@ -1407,6 +1461,14 @@ body.dark-mode #important-reminders-details > div {
                                 <span class="w-3.5 h-3.5 rounded workflow-heatmap-cell level-2 inline-block"></span>
                                 <span class="w-3.5 h-3.5 rounded workflow-heatmap-cell level-3 inline-block"></span>
                                 <span>More</span>
+                            </div>
+                            <div class="workflow-heatmap-nav" onclick="event.preventDefault(); event.stopPropagation();">
+                                <button type="button" id="heatmap-prev-btn" class="workflow-heatmap-nav-btn" onclick="changeWorkflowHeatmapMonth(-1)" title="Previous Month" aria-label="Previous months">
+                                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" id="heatmap-next-btn" class="workflow-heatmap-nav-btn" onclick="changeWorkflowHeatmapMonth(1)" title="Next Month" aria-label="Next months" disabled>
+                                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                                </button>
                             </div>
                             <i data-lucide="chevron-right" class="sub-collapse-chevron w-5 h-5 text-blue-600"></i>
                         </div>
@@ -2257,10 +2319,20 @@ function saveManualLog() {
     closeManualModal();
 }
 
-// === DASHBOARD (STATS, HEATMAP, CHART, & MERGED FILES TABLE) ===
+// === DASHBOARD (STATS, INTERACTIVE HEATMAP, CHART, & MERGED FILES TABLE) ===
+let workflowHeatmapMonthOffset = 0;
+
+window.changeWorkflowHeatmapMonth = function(delta) {
+    workflowHeatmapMonthOffset = Math.min(workflowHeatmapMonthOffset + delta, 0);
+    renderHeatmap(getFilteredLogs());
+};
+
 function renderHeatmap(logs) {
     const container = document.getElementById('workflow-heatmap-months');
     if (!container) return;
+
+    const nextBtn = document.getElementById('heatmap-next-btn');
+    if (nextBtn) nextBtn.disabled = workflowHeatmapMonthOffset >= 0;
 
     const dayCounts = {};
     logs.forEach(l => {
@@ -2274,7 +2346,7 @@ function renderHeatmap(logs) {
     let html = '';
 
     for (let offset = -2; offset <= 0; offset++) {
-        const monthDate = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+        const monthDate = new Date(today.getFullYear(), today.getMonth() + workflowHeatmapMonthOffset + offset, 1);
         const year = monthDate.getFullYear();
         const month = monthDate.getMonth();
         const firstDay = new Date(year, month, 1).getDay();
@@ -2300,6 +2372,7 @@ function renderHeatmap(logs) {
     }
 
     container.innerHTML = html;
+    lucide.createIcons();
     bindHeatmapTooltip();
 }
 
